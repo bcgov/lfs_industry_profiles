@@ -1,0 +1,182 @@
+# Copyright 2022 Province of British Columbia
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and limitations under the License.
+
+# libraries--------------
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(XLConnect)
+library(scales)
+# constants---------------
+ma_months <- 3 #how many months to use for smoothing the data
+# Functions--------------------
+source(here::here("R", "functions.R"))
+# Start by creating a mapping file from naics to various levels of aggregation----------------
+# input file mapping.xlsx uses leading spaces to indicate hierarchy....
+raw_mapping <- read_excel(here::here("data", "mapping.xlsx"), trim_ws = FALSE) %>%
+  janitor::clean_names() %>%
+  mutate(
+    spaces = str_count(industry, "\\G "),
+    agg = case_when(
+      spaces == 0 ~ "high",
+      spaces %in% 2:4 ~ "medium",
+      spaces %in% 5:6 ~ "low"
+    ),
+    industry = trimws(industry)
+  )
+#relationship between each industry and the three levels of aggregation------------
+agg <- raw_mapping %>%
+  select(-naics) %>%
+  mutate(
+    high = if_else(agg == "high", industry, NA_character_),
+    medium = if_else(agg %in% c("high", "medium"), industry, NA_character_),
+    low = if_else(agg == "low", industry, NA_character_)
+  ) %>%
+  fill(high, .direction = "down") %>%
+  fill(medium, .direction = "down") %>%
+  select(industry, high, medium, low)
+
+# get the naics for the lowest level of aggregation---------------
+low <- raw_mapping %>%
+  filter(agg == "low") %>%
+  select(low = industry,
+         naics) %>%
+  group_by(low) %>%
+  nest() %>%
+  mutate(
+    data = map(data, separate_naics),
+    data = map(data, fill_wrapper)
+  ) %>%
+  unnest(data)%>%
+  unnest(naics)
+
+# get the naics for the medium level of aggregation---------------
+medium <- raw_mapping %>%
+  filter(agg == "medium") %>%
+  select(medium = industry, naics) %>%
+  group_by(medium) %>%
+  nest() %>%
+  mutate(
+    data = map(data, separate_naics),
+    data = map(data, fill_wrapper)
+  ) %>%
+  unnest(data) %>%
+  unnest(naics)
+
+# get th naics for the high level of aggregation---------------
+high <- raw_mapping %>%
+  filter(agg == "high") %>%
+  select(high = industry,
+         naics) %>%
+  group_by(high) %>%
+  nest() %>%
+  mutate(
+    data = map(data, separate_naics),
+    data = map(data, fill_wrapper)
+  ) %>%
+  unnest(data) %>%
+  unnest(naics)
+# join by naics to get the mapping file from naics to the 3 levels of aggregation.
+mapping <- high%>%
+  full_join(medium, by="naics")%>%
+  full_join(low, by= "naics")%>%
+  select(naics, everything())
+
+# read in the data-------------------
+ftpt <- read_naics("RTRA5768447_ftptemp4digNAICS_full.xlsx", ftpt, "naics")%>%
+  inner_join(mapping, by = "naics")
+status <- read_naics("RTRA7289833_lfsstat4digNAICS_full.xlsx", lf_stat, "naics")%>%
+  inner_join(mapping, by = "naics")
+bound_data <- bind_rows(ftpt, status)
+
+#note that there are WAY more naics in the mapping file than in the RTRA data
+near(length(unique(mapping$naics)), length(unique(bound_data$naics)))
+
+# 2 digit industries quite different from the high level aggregates of the mapping file.
+
+# ftpt2 <- read_naics("RTRA4047181_ftptemp2digNAICS.xlsx", ftpt, "industry")
+# status2 <- read_naics("RTRA9252750_lfsstat2digNAICS.xlsx", lf_stat, "industry")
+# bound_data2 <- bind_rows(ftpt2, status2)
+# high_agg2 <- bound_data2%>%
+#   group_by(industry)%>%
+#   nest()
+
+# output file has dates as column headings... get the necessary dates-----------
+current <- format(max(bound_data$date), "%b-%y")
+previous_month <- format(max(bound_data$date) - months(1), "%b-%y")
+previous_year <- format(max(bound_data$date) - years(1), "%b-%y")
+# aggregate the data to the three levels-------------
+high_agg <- agg_level(bound_data, high)
+medium_agg <- agg_level(bound_data, medium)
+low_agg <- agg_level(bound_data, low)
+# bind the 3 levels of aggregation together then...
+all_agg_levels <- bind_rows(high_agg, medium_agg, low_agg) %>%
+  mutate(
+    data = map(data, add_vars), # add in the labour force and the unemployment rate
+    data = map(data, trail_ma, months = ma_months), # smooth the data
+    current = map(data, get_smoothed, 0), # get current value of smoothed data
+    last_month = map(data, get_smoothed, 1),
+    last_year = map(data, get_smoothed, 12),
+    current_ytd_ave = map(data, ytd_ave, 0), # year to date average of smoothed data
+    previous_ytd_ave = map(data, ytd_ave, 1)
+  )%>%
+  select(-data) %>%
+  mutate(#join all the dataframes created above for unnesting below (unnesting individually creates sparse dataframe)
+    data = map2(current, last_month, full_join, by = "name"),
+    data = map2(data, last_year, full_join, by = "name"),
+    data = map2(data, current_ytd_ave, full_join, by = "name"),
+    data = map2(data, previous_ytd_ave, full_join, by = "name")
+  ) %>%
+  select(agg_level, data) %>%
+  unnest(data) %>%
+  rename(
+    current = smoothed.x, # fix the names messed up by joins above
+    previous_month = smoothed.y,
+    previous_year = smoothed,
+    current_ytd_average = ytd_ave.x,
+    previous_ytd_average = ytd_ave.y
+  )%>%
+  mutate(#create some variables and format
+    level_change_year = current - previous_year,
+    level_change_month = current - previous_month,
+    level_change_ytd = current_ytd_average - previous_ytd_average,
+    percent_change_year = percent(level_change_year / previous_year, accuracy = .1),
+    percent_change_month = percent(level_change_month / previous_month, accuracy = .1),
+    percent_change_ytd = percent(level_change_ytd / previous_ytd_average, accuracy = .1),
+    current = if_else(name == "unemployment_rate", percent(current, accuracy = .1), comma(current, accuracy = 100)),
+    previous_year = if_else(name == "unemployment_rate", percent(previous_year, accuracy = .1), comma(previous_year, accuracy = 100)),
+    previous_month = if_else(name == "unemployment_rate", percent(previous_month, accuracy = .1), comma(previous_month, accuracy = 100)),
+    level_change_year = if_else(name == "unemployment_rate", percent(level_change_year, accuracy = .1), comma(level_change_year, accuracy = 100)),
+    level_change_month = if_else(name == "unemployment_rate", percent(level_change_month, accuracy = .1), comma(level_change_month, accuracy = 100)),
+    level_change_ytd = if_else(name == "unemployment_rate", percent(level_change_ytd, accuracy = .1), comma(level_change_ytd, accuracy = 100)),
+    current_ytd_average = if_else(name == "unemployment_rate", percent(current_ytd_average, accuracy = .1), comma(current_ytd_average, accuracy = 100)),
+    previous_ytd_average = if_else(name == "unemployment_rate", percent(previous_ytd_average, accuracy = .1), comma(previous_ytd_average, accuracy = 100))
+  ) %>%
+  left_join(agg, by = c("agg_level" = "industry"))%>% #agg is the mapping from industry to the 3 levels of aggregation
+  mutate(medium = ifelse(agg_level == high, paste0("1", medium), medium)) %>%# allows high level industries to be at top of sorted medium industries.
+  group_by(high) %>%
+  nest() %>%
+  mutate(
+    data = map(data, arrange, name, medium), # arranges data by medium level of aggregation (except high level at top because of pasted 1)
+    data = map(data, unfill_var, name), # replaces fixed values with blanks. (excel formatting)
+    data = map(data, indent_industry), # indents industry to indicate hierarchy.
+    data = map(data, select, -medium, -low), # gets rid of aggregation levels
+    data = map(data, clean_up) # assigns the desired column names and puts in the correct order
+  ) %>%
+  filter(!is.na(high))
+
+# write to excel-----------------
+wb <- loadWorkbook(here::here("data", "template.xlsx")) # get the desired sheet formatting
+all_agg_levels%>%
+  mutate(walk2(data, high, write_sheet)) # replicates the template sheet and writes data to each sheet
+removeSheet(wb, "layout") # get rid of the template
+saveWorkbook(wb, here::here("out", "industry_snapshots.xlsx"))#write to file
