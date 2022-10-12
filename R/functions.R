@@ -29,33 +29,21 @@ fill_wrapper <- function(tbbl) {
     mutate(naics = map(naics, fill_ranges))
 }
 # function to read in the employment data by naics
-read_naics <- function(file_name, var, keep) {
-  temp <- read_excel(here::here("data", file_name),
-    col_types = c("numeric", "numeric", "text", "text", "numeric")
-  ) %>%
+read_naics <- function(pttrn, var) {
+  file_names <- list.files(here::here("data"), pattern = pttrn)
+  vroom::vroom(here::here("data", file_names)) %>%
     janitor::clean_names() %>%
     rename(
       name = {{ var }},
       value = count
     ) %>%
     na.omit()%>%
-    filter(naics != "Unknown") %>%
+    filter(naics_5 != "Unknown") %>%
     mutate(
+      naics= as.numeric(str_sub(naics_5, start=-4)),
       date = lubridate::ymd(paste(syear, smth, "01", sep = "/"))
     ) %>%
-     select(-syear, -smth) %>%
-     filter(date < lubridate::today() - months(1))
-  if(keep=="naics"){
-    temp <- temp%>%
-      mutate(naics = as.numeric(str_sub(naics, start = 1, end = 4)))
-  }else if(keep=="industry"){
-    temp <- temp%>%
-      mutate(industry = trimws(str_sub(naics, start = 3)))%>%
-      select(-naics)
-  }else{
-    print("variable keep must be either naics or industry")
-  }
-  return(temp)
+     select(-syear, -smth, -naics_5)
 }
 # aggregates data to level var for each name and date
 agg_level <- function(tbbl, var) {
@@ -86,8 +74,7 @@ ytd_ave <- function(tbbl, num_years) {
   tbbl %>%
     group_by(name) %>%
     filter(date >= start & date <= end) %>%
-    summarize(ytd_ave = mean(smoothed, na.rm = TRUE)) # NOTE THAT PREVIOUS YEAR'S YTD HAS NAS FOR FIRST 2 MONTHS DUE TO SMOOTHING
-  # GET MORE DATA?
+    summarize(ytd_ave = mean(smoothed))
 }
 # labour force and unemployment rates need to be calculated
 add_vars <- function(tbbl) {
@@ -97,7 +84,7 @@ add_vars <- function(tbbl) {
       labour_force = Employed + Unemployed,
       unemployment_rate = Unemployed / labour_force
     ) %>%
-    select(-Unknown) %>%
+    select(-Unknown)%>%
     pivot_longer(cols = -date, names_to = "name", values_to = "value")
 }
 # clears out constant values of var (for excel)

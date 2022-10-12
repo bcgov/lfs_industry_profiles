@@ -10,6 +10,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 
+#' TO DO before sourcing this file:
+#' delete old RTRA files from directory "data"
+#' upload the 4 .SAS files to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan)
+#' download the 4 resulting csv files (with names containing ftptemp4digNAICS and lfsstat4digNAICS) and place in directory "data"
+
+#' Note that Jan 2026 the 201620 SAS files will need to be updated to 202630.
+
 # libraries--------------
 library(tidyverse)
 library(lubridate)
@@ -33,7 +40,7 @@ raw_mapping <- read_excel(here::here("data", "mapping.xlsx"), trim_ws = FALSE) %
     ),
     industry = trimws(industry)
   )
-#relationship between each industry and the three levels of aggregation------------
+#relationship between each industry and the three levels of aggregation (used for excel layout)------------
 agg <- raw_mapping %>%
   select(-naics) %>%
   mutate(
@@ -72,7 +79,7 @@ medium <- raw_mapping %>%
   unnest(data) %>%
   unnest(naics)
 
-# get th naics for the high level of aggregation---------------
+# get the naics for the high level of aggregation---------------
 high <- raw_mapping %>%
   filter(agg == "high") %>%
   select(high = industry,
@@ -91,24 +98,13 @@ mapping <- high%>%
   full_join(low, by= "naics")%>%
   select(naics, everything())
 
-# read in the data-------------------
-ftpt <- read_naics("RTRA5768447_ftptemp4digNAICS_full.xlsx", ftpt, "naics")%>%
+# read in the data and join with mapping file to get aggregation info -------------------
+ftpt <- read_naics("ftptemp4digNAICS", ftpt)%>%
   inner_join(mapping, by = "naics")
-status <- read_naics("RTRA7289833_lfsstat4digNAICS_full.xlsx", lf_stat, "naics")%>%
+status <- read_naics("lfsstat4digNAICS", lf_stat)%>%
   inner_join(mapping, by = "naics")
-bound_data <- bind_rows(ftpt, status)
-
-#note that there are WAY more naics in the mapping file than in the RTRA data
-near(length(unique(mapping$naics)), length(unique(bound_data$naics)))
-
-# 2 digit industries quite different from the high level aggregates of the mapping file.
-
-# ftpt2 <- read_naics("RTRA4047181_ftptemp2digNAICS.xlsx", ftpt, "industry")
-# status2 <- read_naics("RTRA9252750_lfsstat2digNAICS.xlsx", lf_stat, "industry")
-# bound_data2 <- bind_rows(ftpt2, status2)
-# high_agg2 <- bound_data2%>%
-#   group_by(industry)%>%
-#   nest()
+bound_data <- bind_rows(ftpt, status)%>%
+  filter(date < today()-weeks(2))
 
 # output file has dates as column headings... get the necessary dates-----------
 current <- format(max(bound_data$date), "%b-%y")
@@ -175,7 +171,7 @@ all_agg_levels <- bind_rows(high_agg, medium_agg, low_agg) %>%
   filter(!is.na(high))
 
 # write to excel-----------------
-wb <- loadWorkbook(here::here("data", "template.xlsx")) # get the desired sheet formatting
+wb <- loadWorkbook(here::here("data", "template.xlsx")) # get the desired sheet header
 all_agg_levels%>%
   mutate(walk2(data, high, write_sheet)) # replicates the template sheet and writes data to each sheet
 removeSheet(wb, "layout") # get rid of the template
