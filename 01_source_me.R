@@ -104,7 +104,7 @@ ftpt <- read_naics("ftptemp4digNAICS", ftpt)%>%
 status <- read_naics("lfsstat4digNAICS", lf_stat)%>%
   inner_join(mapping, by = "naics")
 bound_data <- bind_rows(ftpt, status)%>%
-  filter(date < today()-weeks(2))
+  filter(date < floor_date(today(), unit = "month")-weeks(2))
 
 # output file has dates as column headings... get the necessary dates-----------
 current <- format(max(bound_data$date), "%b-%y")
