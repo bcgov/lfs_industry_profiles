@@ -58,14 +58,14 @@ agg_level <- function(tbbl, var) {
 trail_ma <- function(tbbl, months) {
   tbbl %>%
     group_by(name) %>%
-    mutate(smoothed = RcppRoll::roll_meanr(value, n = months))
+    mutate(value = RcppRoll::roll_meanr(value, n = months))
 }
 # get the smoothed values for period max(date)-months
 get_smoothed <- function(tbbl, num_months) {
   tbbl %>%
     group_by(name) %>%
     filter(near(date, max(date) - months(num_months), tol = 7)) %>%
-    select(smoothed)
+    select(value)
 }
 # calculates the ytd average of the smoothed values
 ytd_ave <- function(tbbl, num_years) {
@@ -74,7 +74,7 @@ ytd_ave <- function(tbbl, num_years) {
   tbbl %>%
     group_by(name) %>%
     filter(date >= start & date <= end) %>%
-    summarize(ytd_ave = mean(smoothed))
+    summarize(ytd_ave = mean(value))
 }
 # labour force and unemployment rates need to be calculated
 add_vars <- function(tbbl) {
@@ -163,3 +163,18 @@ write_sheet <- function(tbbl, long_name) {
     rownames = FALSE
   )
 }
+stl_smooth <- function(tbbl){
+  tbbl%>%
+    mutate(date=yearmonth(date))%>%
+    tsibble(key=name, index = date)%>%
+    model(stl = STL(value~ trend(window = 5)+ season(window = "periodic"),
+                    robust = TRUE))%>%
+    components()%>%
+    as_tsibble()%>%
+    mutate(date=lubridate::ym(date))%>%
+    select(name, date, smoothed=trend)%>%
+    rename(value=smoothed)%>%
+    as_tibble()
+}
+
+
