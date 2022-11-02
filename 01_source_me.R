@@ -137,11 +137,12 @@ high_agg <- agg_level(bound_data, high)
 medium_agg <- agg_level(bound_data, medium)
 low_agg <- agg_level(bound_data, low)
 # bind the 3 levels of aggregation together then...
-all_agg_levels <- bind_rows(high_agg, medium_agg, low_agg)
 
-write_rds(all_agg_levels, here::here("out","all_agg_levels.rds"))
+bound_data <- bind_rows(high_agg, medium_agg, low_agg)
 
-out_tbbl <- all_agg_levels%>%
+write_rds(bound_data, here::here("out", "bound_data.rds"))
+
+no_format <- bound_data%>%
   mutate(#data = map(data, stl_smooth), #thought this might be better than simple moving average...
         data = map(data, trail_ma, months = ma_months), # simple moving average smooth of data
         data = map(data, add_vars),
@@ -167,38 +168,45 @@ out_tbbl <- all_agg_levels%>%
     current_ytd_average = ytd_ave.x,
     previous_ytd_average = ytd_ave.y
   )%>%
-  mutate(#create some variables and format
+  mutate(#create some variables
     level_change_year = current - previous_year,
     level_change_month = current - previous_month,
     level_change_ytd = current_ytd_average - previous_ytd_average,
-    percent_change_year = percent(level_change_year / previous_year, accuracy = accuracy_small),
-    percent_change_month = percent(level_change_month / previous_month, accuracy = accuracy_small),
-    percent_change_ytd = percent(level_change_ytd / previous_ytd_average, accuracy = accuracy_small),
-    current = if_else(name == "unemployment_rate",
-                      percent(current, accuracy = accuracy_small),
-                      comma(current, accuracy = accuracy_large)),
-    previous_year = if_else(name == "unemployment_rate",
-                            percent(previous_year, accuracy = accuracy_small),
-                            comma(previous_year, accuracy = accuracy_large)),
-    previous_month = if_else(name == "unemployment_rate",
-                             percent(previous_month, accuracy = accuracy_small),
-                             comma(previous_month, accuracy = accuracy_large)),
-    level_change_year = if_else(name == "unemployment_rate",
-                                percent(level_change_year, accuracy = accuracy_small),
-                                comma(level_change_year, accuracy = accuracy_large)),
-    level_change_month = if_else(name == "unemployment_rate",
-                                 percent(level_change_month, accuracy = accuracy_small),
-                                 comma(level_change_month, accuracy = accuracy_large)),
-    level_change_ytd = if_else(name == "unemployment_rate",
-                               percent(level_change_ytd, accuracy = accuracy_small),
-                               comma(level_change_ytd, accuracy = accuracy_large)),
-    current_ytd_average = if_else(name == "unemployment_rate",
-                                  percent(current_ytd_average, accuracy = accuracy_small),
-                                  comma(current_ytd_average, accuracy = accuracy_large)),
-    previous_ytd_average = if_else(name == "unemployment_rate",
-                                   percent(previous_ytd_average, accuracy = accuracy_small),
-                                   comma(previous_ytd_average, accuracy = accuracy_large))
-  ) %>%
+    percent_change_year = level_change_year / previous_year,
+    percent_change_month = level_change_month / previous_month,
+    percent_change_ytd = level_change_ytd / previous_ytd_average)
+
+
+# formatting the output for excel
+with_formatting <- no_format%>%
+  mutate(percent_change_year = percent(percent_change_year, accuracy = accuracy_small),
+        percent_change_month = percent(percent_change_month, accuracy = accuracy_small),
+        percent_change_ytd = percent(percent_change_ytd, accuracy = accuracy_small),
+        current = if_else(name == "unemployment_rate",
+                          percent(current, accuracy = accuracy_small),
+                          comma(current, accuracy = accuracy_large)),
+        previous_year = if_else(name == "unemployment_rate",
+                                percent(previous_year, accuracy = accuracy_small),
+                                comma(previous_year, accuracy = accuracy_large)),
+        previous_month = if_else(name == "unemployment_rate",
+                                 percent(previous_month, accuracy = accuracy_small),
+                                 comma(previous_month, accuracy = accuracy_large)),
+        level_change_year = if_else(name == "unemployment_rate",
+                                    percent(level_change_year, accuracy = accuracy_small),
+                                    comma(level_change_year, accuracy = accuracy_large)),
+        level_change_month = if_else(name == "unemployment_rate",
+                                     percent(level_change_month, accuracy = accuracy_small),
+                                     comma(level_change_month, accuracy = accuracy_large)),
+        level_change_ytd = if_else(name == "unemployment_rate",
+                                   percent(level_change_ytd, accuracy = accuracy_small),
+                                   comma(level_change_ytd, accuracy = accuracy_large)),
+        current_ytd_average = if_else(name == "unemployment_rate",
+                                      percent(current_ytd_average, accuracy = accuracy_small),
+                                      comma(current_ytd_average, accuracy = accuracy_large)),
+        previous_ytd_average = if_else(name == "unemployment_rate",
+                                       percent(previous_ytd_average, accuracy = accuracy_small),
+                                       comma(previous_ytd_average, accuracy = accuracy_large))
+      ) %>%
   left_join(agg, by = c("agg_level" = "industry"))%>% #agg is the mapping from industry to the 3 levels of aggregation
   mutate(medium = ifelse(agg_level == high, paste0("1", medium), medium)) %>%# allows high level industries to be at top of sorted medium industries.
   group_by(high) %>%
@@ -214,16 +222,9 @@ out_tbbl <- all_agg_levels%>%
 
 # write to excel-----------------
 wb <- loadWorkbook(here::here("data", "template.xlsx")) # get the desired sheet header
-out_tbbl%>%
+with_formatting%>%
   mutate(walk2(data, high, write_sheet)) # replicates the template sheet and writes data to each sheet
 removeSheet(wb, "layout") # get rid of the template
 saveWorkbook(wb, here::here("out", "industry_snapshots.xlsx"))#write to file
 tictoc::toc()
 
-
-#
-#   mtcars |>
-#   as_tibble(rownames="Car name") |>
-#   pivot_longer(cols = -c(`Car name`, hp, vs, am), names_to = "Property", values_to = "Value")|>
-#   heatmap(`Car name`, Property, Value,scale = "column",cluster_rows = FALSE, cluster_columns = FALSE )
-#
