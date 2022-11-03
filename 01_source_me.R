@@ -28,8 +28,8 @@ library(feasts)
 library(fable)
 # constants---------------
 ma_months <- 3 #how many months to use for smoothing the data
-accuracy_large <- 100
-accuracy_small <- .1
+accuracy_large <- 100 #levels rounded to nearest hundred
+accuracy_small <- .1 #percentages rounded to nearest tenth
 # Functions--------------------
 source(here::here("R", "functions.R"))
 # Start by creating a mapping file from naics to various levels of aggregation----------------
@@ -66,7 +66,7 @@ low <- raw_mapping %>%
   select(low = industry,
          naics) %>%
   group_by(low) %>%
-  nest() %>%
+  nest()%>%
   mutate(
     data = map(data, separate_naics),
     data = map(data, fill_wrapper)
@@ -138,9 +138,8 @@ medium_agg <- agg_level(bound_data, medium)
 low_agg <- agg_level(bound_data, low)
 # bind the 3 levels of aggregation together then...
 
-bound_data <- bind_rows(high_agg, medium_agg, low_agg)
-
-write_rds(bound_data, here::here("out", "bound_data.rds"))
+bound_data <- bind_rows(high_agg, medium_agg, low_agg)%>%
+  na.omit()
 
 no_format <- bound_data%>%
   mutate(#data = map(data, stl_smooth), #thought this might be better than simple moving average...
@@ -176,6 +175,7 @@ no_format <- bound_data%>%
     percent_change_month = level_change_month / previous_month,
     percent_change_ytd = level_change_ytd / previous_ytd_average)
 
+write_csv(no_format, here::here("out","no_format.csv"))
 
 # formatting the output for excel
 with_formatting <- no_format%>%
@@ -219,6 +219,8 @@ with_formatting <- no_format%>%
     data = map(data, clean_up) # assigns the desired column names and puts in the correct order
   ) %>%
   filter(!is.na(high))
+
+write_rds(with_formatting, here::here("out","nested.rds"))
 
 # write to excel-----------------
 wb <- loadWorkbook(here::here("data", "template.xlsx")) # get the desired sheet header
