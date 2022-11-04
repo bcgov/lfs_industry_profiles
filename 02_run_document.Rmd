@@ -1,0 +1,236 @@
+---
+title: "`r params$doc_title`"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+runtime: shiny
+css: style.css
+params:
+  doc_title: Industry Profiles
+---
+
+```{r}
+#libraries---------------
+library(tidyverse)
+library(shinyWidgets)
+library(wrapR) #  devtools::install_github("bcgov/wrapR")
+library(DT)
+#load data--------------
+for_tables <- read_rds(here::here("out","for_tables.rds"))
+for_heatmaps <- read_rds(here::here("out","for_heatmaps.rds"))%>%
+  mutate(name=str_to_title(str_replace_all(name, "_", " ")))
+
+accuracy_large <- 100 #levels rounded to nearest hundred
+accuracy_small <- .1 #percentages rounded to nearest tenth
+
+
+page_titles <- c("Landing Page",
+                 "Heatmaps",
+                 "Data")
+make_title <- function(strng){
+  strng <- str_to_title(str_replace_all(strng,"_"," "))
+}
+
+nav_but <- function(direction, current_page){
+    if(direction=="previous"){
+      if(current_page==1){
+        name = tail(page_titles, n=1)
+      }else{
+        name = page_titles[current_page-1]
+      }
+    }
+  if(direction == "next"){
+      if(current_page == length(page_titles)){
+        name = page_titles[1]
+      }else{
+        name = page_titles[current_page+1]
+      }
+    }
+  name <- str_to_lower(name)%>%
+      str_replace_all(" ","-")
+  lab <-  str_to_title(paste(direction, "Page"))
+  oc <- paste0("location.href='#section-",name,"';")
+  actionButton("1", label = lab, class = "btn btn-sm btn-primary", 
+            onclick = oc)
+}
+
+```
+
+`r page_titles[1]` {data-navmenu="Table of Contents"}
+=====================================
+Inputs {.sidebar}
+-------------------------------------
+
+### Navigation
+
+```{r}
+nav_but(direction = "previous", current_page = 1)
+nav_but(direction = "next", current_page = 1)
+```
+
+Row {data-height=600}
+-------------------------------------
+
+```{r, out.width = "125%"}
+knitr::include_graphics("aest.png")#the cover image
+```
+
+Row {data-height=400}
+-------------------------------------
+
+###
+
+<h1 class="center">`r params$doc_title`.</h1> <!-- add the title -->
+
+<br><br>
+
+<h3> LFS monthly summary...</h3>
+
+
+
+`r page_titles[2]`  {data-navmenu="Table of Contents"}
+===========================================
+
+### `r renderUI(input$measure)` 
+
+Inputs {.sidebar}
+-------------------------------------
+
+### Navigation
+
+```{r}
+nav_but(direction = "previous", current_page = 2)
+nav_but(direction = "next", current_page = 2)
+
+```
+
+### Inputs
+
+
+```{r}
+selectInput(
+  "measure",
+  "choose a measure",
+  unique(for_heatmaps$name),
+  selected =unique(for_heatmaps$name)[1],
+  multiple = FALSE
+)
+
+selectInput(
+  "agg_industry",
+  "choose an industry",
+  c("All",unique(for_heatmaps$high)),
+  selected =c("All",unique(for_heatmaps$high))[1],
+  multiple = FALSE
+)
+
+for_heat <- reactive({
+  if(input$agg_industry=="All"){
+    for_heatmaps%>%
+      filter(medium==high)%>%
+      ungroup()%>%
+      select(-high, -medium, -low)%>%
+      unnest(data)%>%
+      group_by(name)%>%
+      nest()
+  }else{
+    for_heatmaps%>%
+      filter(high==input$agg_industry & medium != high)%>%
+      ungroup()%>%
+      select(-high, -medium, -low)%>%
+      unnest(data)%>%
+      group_by(name)%>%
+      nest()
+}
+})
+
+heatmap_matrix <- reactive({
+  temp <- for_heat()%>%
+  filter(name==input$measure)%>%
+  unnest(data)%>%
+  column_to_rownames("agg_level")%>%
+  select(-name)
+  colnames(temp) <- str_to_title(str_replace_all(colnames(temp),"_"," "))
+  temp
+})
+
+hover_text <- reactive({
+  if(input$measure=="Unemployment Rate"){
+     heatmap_matrix()%>%
+      mutate(across(everything(), ~paste0("unscaled value: ", scales::percent(., accuracy = accuracy_small))))
+  }else{
+    heatmap_matrix()%>%
+      mutate(across(contains("percent"), ~paste0("unscaled value: ", scales::percent(., accuracy = accuracy_small))),
+            across(!contains("percent"), ~paste0("unscaled value: ", scales::comma(., accuracy = accuracy_large))))
+  }
+})
+```
+
+Row 
+-------------------------------------
+   
+### 
+
+```{r}
+plotly::renderPlotly(
+  heatmaply::heatmaply(heatmap_matrix(), scale="column", Colv=FALSE, custom_hovertext=hover_text())
+)
+```
+
+
+
+
+`r page_titles[3]`  {data-navmenu="Table of Contents"}
+===========================================
+
+### `r renderUI(input$industry)` 
+
+Inputs {.sidebar}
+-------------------------------------
+
+### Navigation
+
+```{r}
+nav_but(direction = "previous", current_page = 3)
+nav_but(direction = "next", current_page = 3)
+```
+
+### Inputs
+
+```{r}
+selectInput(
+  "industry",
+  "choose an industry",
+  unique(for_tables$high),
+  selected =unique(for_tables$high)[1],
+  multiple = FALSE
+)
+
+tbbl_to_show <- reactive({
+  temp <- for_tables%>%
+    filter(high==input$industry)%>%
+    ungroup()%>%
+    pull(data)
+  
+  temp[[1]]%>%
+    mutate(Industry= str_replace_all(Industry, " ", "&nbsp")) #datatable strips out whitespace
+})
+```
+
+Row 
+-------------------------------------
+   
+###
+
+```{r}
+DT::renderDT(
+  DT::datatable(tbbl_to_show(), escape=FALSE, rownames=FALSE, options(list(pageLength = 100, dom='t')))
+)
+```
+
+
+
+
+
+
+

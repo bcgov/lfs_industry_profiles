@@ -58,7 +58,7 @@ agg_level <- function(tbbl, var) {
 trail_ma <- function(tbbl, months) {
   tbbl %>%
     group_by(name) %>%
-    mutate(value = RcppRoll::roll_meanr(value, n = months))
+    mutate(value = RcppRoll::roll_meanr(value, n = months)+1) #to avoid avoid infinite values
 }
 # get the smoothed values for period max(date)-months
 get_smoothed <- function(tbbl, num_months) {
@@ -98,8 +98,8 @@ unfill_var <- function(tbbl, var) {
 indent_industry <- function(tbbl) {
   tbbl %>%
     mutate(
-      agg_level = if_else(characteristic == "", paste0("   ", agg_level), agg_level),
-      agg_level = if_else(is.na(low), agg_level, paste0("   ", agg_level))
+      agg_level = if_else(characteristic == "", paste0("     ", agg_level), agg_level),
+      agg_level = if_else(is.na(low), agg_level, paste0("     ", agg_level))
     )
 }
 # puts columns in the correct order and gives them the correct names

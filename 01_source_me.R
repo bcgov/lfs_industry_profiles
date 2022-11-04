@@ -113,10 +113,10 @@ ftpt <- read_naics("ftptemp4digNAICS", ftpt)%>%
   inner_join(mapping, by = "naics")
 status <- read_naics("lfsstat4digNAICS", lf_stat)%>%
   inner_join(mapping, by = "naics")
-bound_data <- bind_rows(ftpt, status)
+all_data <- bind_rows(ftpt, status)
 
 #data is zero padded to the end of the current year... figure out the last month from data.
-max_date <- bound_data%>%
+max_date <- all_data%>%
   group_by(date, name)%>%
   summarize(value=mean(value))%>%
   ungroup()%>%
@@ -125,17 +125,17 @@ max_date <- bound_data%>%
   pull(date)%>%
   unique()
 
-bound_data <- bound_data%>%
+truncated <- all_data%>%
   filter(date <= max_date)
 
 # output file has dates as column headings... get the necessary dates-----------
-current <- format(max(bound_data$date), "%b-%y")
-previous_month <- format(max(bound_data$date) - months(1), "%b-%y")
-previous_year <- format(max(bound_data$date) - years(1), "%b-%y")
+current <- format(max(truncated$date), "%b-%y")
+previous_month <- format(max(truncated$date) - months(1), "%b-%y")
+previous_year <- format(max(truncated$date) - years(1), "%b-%y")
 # aggregate the data to the three levels-------------
-high_agg <- agg_level(bound_data, high)
-medium_agg <- agg_level(bound_data, medium)
-low_agg <- agg_level(bound_data, low)
+high_agg <- agg_level(truncated, high)
+medium_agg <- agg_level(truncated, medium)
+low_agg <- agg_level(truncated, low)
 # bind the 3 levels of aggregation together then...
 
 bound_data <- bind_rows(high_agg, medium_agg, low_agg)%>%
@@ -175,7 +175,12 @@ no_format <- bound_data%>%
     percent_change_month = level_change_month / previous_month,
     percent_change_ytd = level_change_ytd / previous_ytd_average)
 
-write_csv(no_format, here::here("out","no_format.csv"))
+
+full_join(no_format, agg, by=c("agg_level"="industry"))%>%
+  ungroup()%>%
+  group_by(agg_level, high, medium, low, name)%>%
+  nest()%>%
+write_rds(here::here("out","for_heatmaps.rds"))
 
 # formatting the output for excel
 with_formatting <- no_format%>%
@@ -220,7 +225,7 @@ with_formatting <- no_format%>%
   ) %>%
   filter(!is.na(high))
 
-write_rds(with_formatting, here::here("out","nested.rds"))
+write_rds(with_formatting, here::here("out","for_tables.rds"))
 
 # write to excel-----------------
 wb <- loadWorkbook(here::here("data", "template.xlsx")) # get the desired sheet header
