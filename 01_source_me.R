@@ -23,9 +23,9 @@ library(lubridate)
 library(readxl)
 library(XLConnect)
 library(scales)
-library(tsibble)
-library(feasts)
-library(fable)
+#library(tsibble) #these 3 libraries only needed if doing stl decomp
+#library(feasts)
+#library(fable)
 # constants---------------
 ma_months <- 3 #how many months to use for smoothing the data
 accuracy_large <- 100 #levels rounded to nearest hundred
@@ -149,6 +149,8 @@ full_join(smoothed_data, agg, by=c("agg_level"="industry"))%>%
   unnest(data)%>%
   group_by(agg_level, high, medium, low, name)%>%
   nest()%>%
+  mutate(name=str_to_title(str_replace_all(name, "_", " ")),
+         data=map(data, pivot_wider, names_from="date", values_from="value"))%>%
   write_rds(here::here("out","smoothed_with_mapping.rds"))
 
 no_format <- smoothed_data %>%
@@ -187,6 +189,7 @@ full_join(no_format, agg, by=c("agg_level"="industry"))%>%
   ungroup()%>%
   group_by(agg_level, high, medium, low, name)%>%
   nest()%>%
+  mutate(name=str_to_title(str_replace_all(name, "_", " ")))%>%
 write_rds(here::here("out","for_heatmaps.rds"))
 
 # formatting the output for excel

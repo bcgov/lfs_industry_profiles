@@ -177,4 +177,7 @@ stl_smooth <- function(tbbl){
     as_tibble()
 }
 
-
+rescale01 <- function(tbbl, var, ...) {
+  tbbl%>%
+    mutate(value= ({{  var  }} - min({{  var  }}, ...)) / (max({{  var  }}, ...) - min({{  var  }}, ...)))
+}
