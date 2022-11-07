@@ -136,16 +136,23 @@ previous_year <- format(max(truncated$date) - years(1), "%b-%y")
 high_agg <- agg_level(truncated, high)
 medium_agg <- agg_level(truncated, medium)
 low_agg <- agg_level(truncated, low)
+
 # bind the 3 levels of aggregation together then...
-
-bound_data <- bind_rows(high_agg, medium_agg, low_agg)%>%
-  na.omit()
-
-no_format <- bound_data%>%
+smoothed_data <- bind_rows(high_agg, medium_agg, low_agg)%>%
+  na.omit() %>%
   mutate(#data = map(data, stl_smooth), #thought this might be better than simple moving average...
         data = map(data, trail_ma, months = ma_months), # simple moving average smooth of data
-        data = map(data, add_vars),
-        current = map(data, get_smoothed, 0), # get current value of smoothed data
+        data = map(data, add_vars)) #add in labour force and unemployment rate
+
+full_join(smoothed_data, agg, by=c("agg_level"="industry"))%>%
+  mutate(data=map(data, na.omit))%>%
+  unnest(data)%>%
+  group_by(agg_level, high, medium, low, name)%>%
+  nest()%>%
+  write_rds(here::here("out","smoothed_with_mapping.rds"))
+
+no_format <- smoothed_data %>%
+  mutate(current = map(data, get_smoothed, 0), # get current value of smoothed data
         last_month = map(data, get_smoothed, 1),
         last_year = map(data, get_smoothed, 12),
         current_ytd_ave = map(data, ytd_ave, 0), # year to date average of smoothed data

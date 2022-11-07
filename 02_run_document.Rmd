@@ -12,21 +12,48 @@ params:
 ```{r}
 #libraries---------------
 library(tidyverse)
-library(shinyWidgets)
-library(wrapR) #  devtools::install_github("bcgov/wrapR")
 library(DT)
 #load data--------------
 for_tables <- read_rds(here::here("out","for_tables.rds"))
 for_heatmaps <- read_rds(here::here("out","for_heatmaps.rds"))%>%
   mutate(name=str_to_title(str_replace_all(name, "_", " ")))
+smoothed_with_mapping <- read_rds(here::here("out","smoothed_with_mapping.rds"))
 
+# temp <- smoothed_with_mapping%>%
+#   filter(name=="unemployment_rate",
+#          medium==high)%>%
+#   ungroup()%>%
+#   select(agg_level, data)%>%
+#   unnest(data)%>%
+#   pivot_wider(names_from = date, values_from = value)%>%
+#   column_to_rownames("agg_level")
+# 
+# temp <- smoothed_with_mapping%>%
+#   filter(name=="unemployment_rate",
+#          high=="Construction",
+#          medium!=high)%>%
+#   ungroup()%>%
+#   select(agg_level, data)%>%
+#   unnest(data)%>%
+#   pivot_wider(names_from = date, values_from = value)%>%
+#   column_to_rownames("agg_level")
+# 
+# 
+# heatmaply::heatmaply(temp, fontsize_col = 1, scale="row", Colv=FALSE)
+
+
+
+
+
+
+#constants---------------
 accuracy_large <- 100 #levels rounded to nearest hundred
 accuracy_small <- .1 #percentages rounded to nearest tenth
-
-
 page_titles <- c("Landing Page",
-                 "Heatmaps",
+                 "Heatmaps of raw data",
+                 "Heatmaps of derived measures",
                  "Data")
+#functions---------------
 make_title <- function(strng){
   strng <- str_to_title(str_replace_all(strng,"_"," "))
 }
