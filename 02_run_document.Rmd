@@ -13,24 +13,25 @@ params:
 #libraries---------------
 library(tidyverse)
 library(DT)
+library(feasts)
 #load data--------------
 for_tables <- read_rds(here::here("out","for_tables.rds"))
 for_heatmaps <- read_rds(here::here("out","for_heatmaps.rds"))
 smoothed_with_mapping <- read_rds(here::here("out","smoothed_with_mapping.rds"))
+data_for_forecasts <- read_rds(here::here("out","data_for_forecasts.rds"))
+forecasts <- read_rds(here::here("out","forecasts.rds"))
 agg_industries_no_utilities <- c("All",unique(for_heatmaps$high)[unique(for_heatmaps$high)!="Utilities"])
 
 #constants---------------
 accuracy_large <- 100 #levels rounded to nearest hundred
 accuracy_small <- .1 #percentages rounded to nearest tenth
 page_titles <- c("Landing Page",
-                 "Heatmaps of raw data",
-                 "Heatmaps of derived measures",
-                 "Data")
+                 "Heatmap of smoothed data",
+                 "Heatmap of derived measures",
+                 "Data",
+                 "Forecasts")
 #functions---------------
-make_title <- function(strng){
-  strng <- str_to_title(str_replace_all(strng,"_"," "))
-}
-
+source(here::here("R","functions.R"))
 nav_but <- function(direction, current_page){
     if(direction=="previous"){
       if(current_page==1){
@@ -90,7 +91,7 @@ Row {data-height=400}
 `r page_titles[2]`  {data-navmenu="Table of Contents"}
 ===========================================
 
-### `r renderUI(input$measure1)` 
+### `r page_titles[2]` 
 
 Inputs {.sidebar}
 -------------------------------------
@@ -172,7 +173,12 @@ Row
 
 ```{r}
 plotly::renderPlotly(
-  heatmaply::heatmaply(heatmap_matrix1(), scale="row", fontsize_col = 5, Colv=FALSE, custom_hovertext=hover_text1())
+  heatmaply::heatmaply(heatmap_matrix1(), 
+                       scale="row", 
+                       fontsize_col = 5, 
+                       Colv=FALSE, 
+                       main= paste0("Measure: ",input$measure1, ", Industry: ", input$agg_industry1),
+                       custom_hovertext=hover_text1())
 )
 ```
 
@@ -181,7 +187,7 @@ plotly::renderPlotly(
 `r page_titles[3]`  {data-navmenu="Table of Contents"}
 ===========================================
 
-### `r renderUI(input$measure)` 
+### `r page_titles[3]` 
 
 Inputs {.sidebar}
 -------------------------------------
@@ -263,7 +269,11 @@ Row
 
 ```{r}
   plotly::renderPlotly(
-    heatmaply::heatmaply(heatmap_matrix(), scale="column", Colv=FALSE, custom_hovertext=hover_text()))
+    heatmaply::heatmaply(heatmap_matrix(), 
+                         scale="column", 
+                         Colv=FALSE,
+                         main= paste0("Measure: ",input$measure, ", Industry: ", input$agg_industry),
+                         custom_hovertext=hover_text()))
 ```
 
 
@@ -272,7 +282,7 @@ Row
 `r page_titles[4]`  {data-navmenu="Table of Contents"}
 ===========================================
 
-### `r renderUI(input$industry)` 
+### `r page_titles[4]` 
 
 Inputs {.sidebar}
 -------------------------------------
@@ -314,6 +324,45 @@ Row
 ```{r}
 DT::renderDT(
   DT::datatable(tbbl_to_show(), escape=FALSE, rownames=FALSE, options(list(pageLength = 100, dom='t')))
+)
+```
+
+
+`r page_titles[5]`  {data-navmenu="Table of Contents"}
+===========================================
+
+### `r page_titles[5]` 
+
+Inputs {.sidebar}
+-------------------------------------
+
+### Navigation
+
+```{r}
+nav_but(direction = "previous", current_page = 5)
+nav_but(direction = "next", current_page = 5)
+```
+
+### Inputs
+
+```{r}
+selectInput(
+  "industry2",
+  "choose an industry",
+  unique(forecasts$agg_level),
+  selected =unique(forecasts$agg_level)[1],
+  multiple = FALSE
+)
+```
+
+Row 
+-------------------------------------
+   
+###
+
+```{r, fig.retina=2}
+renderPlot(
+ plot_forecasts(data_for_forecasts, forecasts, input$industry2) 
 )
 ```
 

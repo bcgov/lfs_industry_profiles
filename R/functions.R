@@ -181,3 +181,24 @@ rescale01 <- function(tbbl, var, ...) {
   tbbl%>%
     mutate(value= ({{  var  }} - min({{  var  }}, ...)) / (max({{  var  }}, ...) - min({{  var  }}, ...)))
 }
+
+plot_forecasts <- function(historic, fcast, industry){
+  fcast %>%
+    filter(agg_level==industry) %>%
+    autoplot(historic)+
+    scale_y_continuous(trans="log", labels=scales::comma)+
+    labs(x="",
+         y="",
+         title=paste("12 Month Exponential Smoothing Forecasts for",industry, "Industry"))+
+    theme_minimal()+
+    facet_wrap(~name, nrow=2, scales = "free_y")
+}
+make_title <- function(strng){
+  strng <- str_to_title(str_replace_all(strng,"_"," "))
+}
+
+
+
+
+
+

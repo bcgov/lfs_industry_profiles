@@ -23,6 +23,7 @@ library(lubridate)
 library(readxl)
 library(XLConnect)
 library(scales)
+library(fpp3)
 #library(tsibble) #these 3 libraries only needed if doing stl decomp
 #library(feasts)
 #library(fable)
@@ -144,14 +145,32 @@ smoothed_data <- bind_rows(high_agg, medium_agg, low_agg)%>%
         data = map(data, trail_ma, months = ma_months), # simple moving average smooth of data
         data = map(data, add_vars)) #add in labour force and unemployment rate
 
-full_join(smoothed_data, agg, by=c("agg_level"="industry"))%>%
+smoothed_with_mapping <- full_join(smoothed_data, agg, by=c("agg_level"="industry"))%>%
   mutate(data=map(data, na.omit))%>%
   unnest(data)%>%
   group_by(agg_level, high, medium, low, name)%>%
   nest()%>%
   mutate(name=str_to_title(str_replace_all(name, "_", " ")),
-         data=map(data, pivot_wider, names_from="date", values_from="value"))%>%
-  write_rds(here::here("out","smoothed_with_mapping.rds"))
+         data=map(data, pivot_wider, names_from="date", values_from="value"))
+
+  write_rds(smoothed_with_mapping, here::here("out","smoothed_with_mapping.rds"))
+
+data_for_forecasts <- smoothed_with_mapping%>%
+  filter(high==medium)%>%
+  ungroup()%>%
+  select(agg_level, name, data)%>%
+  unnest(data)%>%
+  pivot_longer(cols=-c(agg_level, name), names_to = "date", values_to = "value")%>%
+  mutate(date=yearmonth(date))%>%
+  as_tsibble(key=c(agg_level, name), index = date)
+
+write_rds(data_for_forecasts, here::here("out","data_for_forecasts.rds"))
+
+forecasts <- data_for_forecasts%>%
+  model(ets = ETS(log(value)))%>%
+  forecast(h = 12)
+
+write_rds(forecasts, here::here("out","forecasts.rds"))
 
 no_format <- smoothed_data %>%
   mutate(current = map(data, get_smoothed, 0), # get current value of smoothed data
