@@ -58,7 +58,7 @@ agg_level <- function(tbbl, var) {
 trail_ma <- function(tbbl, months) {
   tbbl %>%
     group_by(name) %>%
-    mutate(value = RcppRoll::roll_meanr(value, n = months)+1) #to avoid avoid infinite values
+    mutate(value = RcppRoll::roll_meanr(value, n = months)+1) #+1 to avoid avoid infinite rates
 }
 # get the smoothed values for period max(date)-months
 get_smoothed <- function(tbbl, num_months) {

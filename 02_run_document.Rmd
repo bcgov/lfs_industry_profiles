@@ -26,9 +26,9 @@ agg_industries_no_utilities <- c("All",unique(for_heatmaps$high)[unique(for_heat
 accuracy_large <- 100 #levels rounded to nearest hundred
 accuracy_small <- .1 #percentages rounded to nearest tenth
 page_titles <- c("Landing Page",
-                 "Heatmap of smoothed data",
-                 "Heatmap of derived measures",
                  "Data",
+                 "Heatmap of derived measures",
+                 "Heatmap of smoothed data",
                  "Forecasts")
 #functions---------------
 source(here::here("R","functions.R"))
@@ -88,6 +88,7 @@ Row {data-height=400}
 <h3> The Labour Force Survey (LFS) is a monthly survey which measures the current state of the Canadian labour market and is used, among other things, to calculate the national, provincial, territorial and regional employment and unemployment rates. The survey results are used to make important decisions regarding job creation, education and training, retirement pensions and income support.  This dashboard provides a by industry breakdown of British Columbia's LFS data.</h3>
 
 
+
 `r page_titles[2]`  {data-navmenu="Table of Contents"}
 ===========================================
 
@@ -101,86 +102,63 @@ Inputs {.sidebar}
 ```{r}
 nav_but(direction = "previous", current_page = 2)
 nav_but(direction = "next", current_page = 2)
-
 ```
 
 ### Inputs
 
-
 ```{r}
 selectInput(
-  "measure1",
-  "choose a measure",
-  unique(smoothed_with_mapping$name),
-  selected =unique(smoothed_with_mapping$name)[1],
-  multiple = FALSE
-)
-
-selectInput(
-  "agg_industry1",
+  "industry",
   "choose an industry",
-  agg_industries_no_utilities,
-  selected =agg_industries_no_utilities[1],
+  unique(for_tables$high),
+  selected =unique(for_tables$high)[1],
   multiple = FALSE
 )
 
-for_heat1 <- reactive({
-  if(input$agg_industry1=="All"){
-    smoothed_with_mapping%>%
-      filter(medium==high)%>%
-      ungroup()%>%
-      select(-high, -medium, -low)%>%
-      unnest(data)%>%
-      group_by(name)%>%
-      nest()
-  }else{
-    smoothed_with_mapping%>%
-      filter(high==input$agg_industry1 & medium != high)%>%
-      ungroup()%>%
-      select(-high, -medium, -low)%>%
-      unnest(data)%>%
-      group_by(name)%>%
-      nest()
-}
+tbbl_to_show <- reactive({
+  temp <- for_tables%>%
+    filter(high==input$industry)%>%
+    ungroup()%>%
+    pull(data)
+  
+  temp[[1]]%>%
+    mutate(Industry= str_replace_all(Industry, " ", "&nbsp")) #datatable strips out whitespace
 })
 
-heatmap_matrix1 <- reactive({
-  temp <- for_heat1()%>%
-  filter(name==input$measure1)%>%
-  unnest(data)%>%
-  column_to_rownames("agg_level")%>%
-  select(-name)
-  colnames(temp) <- str_to_title(str_replace_all(colnames(temp),"_"," "))
-  temp
-})
-
-hover_text1 <- reactive({
-  if(input$measure1=="Unemployment Rate"){
-     heatmap_matrix1()%>%
-      mutate(across(everything(), ~paste0("unscaled value: ", scales::percent(., accuracy = accuracy_small))))
-  }else{
-    heatmap_matrix1()%>%
-      mutate(across(contains("percent"), ~paste0("unscaled value: ", scales::percent(., accuracy = accuracy_small))),
-            across(!contains("percent"), ~paste0("unscaled value: ", scales::comma(., accuracy = accuracy_large))))
-  }
-})
+sketch = htmltools::withTags(table(
+  class = 'display',
+  thead(
+    tr(
+      th(class="dt-center", colspan = 2, ''),
+      th(class="dt-center", colspan = 3, 'Monthly'),
+      th(class="dt-center", colspan = 2, 'Year to Date',
+       th(class="dt-center", colspan = 3, 'Level Change'),
+       th(class="dt-center", colspan = 3, 'Percent Change'),  
+       )
+    ),
+    tr(
+      lapply(names(for_tables[[2]][[1]]), th)
+    )
+  )
+))
 ```
 
 Row 
 -------------------------------------
    
-### 
+###
 
 ```{r}
-plotly::renderPlotly(
-  heatmaply::heatmaply(heatmap_matrix1(), 
-                       scale="row", 
-                       fontsize_col = 5, 
-                       Colv=FALSE, 
-                       main= paste0("Measure: ",input$measure1, ", Industry: ", input$agg_industry1),
-                       custom_hovertext=hover_text1())
+DT::renderDT(
+  DT::datatable(tbbl_to_show(),
+                container = sketch,
+                escape=FALSE,
+                options(list(pageLength = 100, dom='t')),
+                rownames=FALSE
+                )
 )
 ```
+
 
 
 
@@ -276,7 +254,6 @@ Row
                          custom_hovertext=hover_text()))
 ```
 
-
 `r page_titles[4]`  {data-navmenu="Table of Contents"}
 ===========================================
 
@@ -290,62 +267,88 @@ Inputs {.sidebar}
 ```{r}
 nav_but(direction = "previous", current_page = 4)
 nav_but(direction = "next", current_page = 4)
+
 ```
 
 ### Inputs
 
+
 ```{r}
 selectInput(
-  "industry",
-  "choose an industry",
-  unique(for_tables$high),
-  selected =unique(for_tables$high)[1],
+  "measure1",
+  "choose a measure",
+  unique(smoothed_with_mapping$name),
+  selected =unique(smoothed_with_mapping$name)[1],
   multiple = FALSE
 )
 
-tbbl_to_show <- reactive({
-  temp <- for_tables%>%
-    filter(high==input$industry)%>%
-    ungroup()%>%
-    pull(data)
-  
-  temp[[1]]%>%
-    mutate(Industry= str_replace_all(Industry, " ", "&nbsp")) #datatable strips out whitespace
+selectInput(
+  "agg_industry1",
+  "choose an industry",
+  agg_industries_no_utilities,
+  selected =agg_industries_no_utilities[1],
+  multiple = FALSE
+)
+
+for_heat1 <- reactive({
+  if(input$agg_industry1=="All"){
+    smoothed_with_mapping%>%
+      filter(medium==high)%>%
+      ungroup()%>%
+      select(-high, -medium, -low)%>%
+      unnest(data)%>%
+      group_by(name)%>%
+      nest()
+  }else{
+    smoothed_with_mapping%>%
+      filter(high==input$agg_industry1 & medium != high)%>%
+      ungroup()%>%
+      select(-high, -medium, -low)%>%
+      unnest(data)%>%
+      group_by(name)%>%
+      nest()
+}
 })
 
-sketch = htmltools::withTags(table(
-  class = 'display',
-  thead(
-    tr(
-      th(class="dt-center", colspan = 2, ''),
-      th(class="dt-center", colspan = 3, 'Monthly'),
-      th(class="dt-center", colspan = 2, 'Year to Date',
-       th(class="dt-center", colspan = 3, 'Level Change'),
-       th(class="dt-center", colspan = 3, 'Percent Change'),  
-       )
-    ),
-    tr(
-      lapply(names(for_tables[[2]][[1]]), th)
-    )
-  )
-))
+heatmap_matrix1 <- reactive({
+  temp <- for_heat1()%>%
+  filter(name==input$measure1)%>%
+  unnest(data)%>%
+  column_to_rownames("agg_level")%>%
+  select(-name)
+  colnames(temp) <- str_to_title(str_replace_all(colnames(temp),"_"," "))
+  temp
+})
+
+hover_text1 <- reactive({
+  if(input$measure1=="Unemployment Rate"){
+     heatmap_matrix1()%>%
+      mutate(across(everything(), ~paste0("unscaled value: ", scales::percent(., accuracy = accuracy_small))))
+  }else{
+    heatmap_matrix1()%>%
+      mutate(across(contains("percent"), ~paste0("unscaled value: ", scales::percent(., accuracy = accuracy_small))),
+            across(!contains("percent"), ~paste0("unscaled value: ", scales::comma(., accuracy = accuracy_large))))
+  }
+})
 ```
 
 Row 
 -------------------------------------
    
-###
+### 
 
 ```{r}
-DT::renderDT(
-  DT::datatable(tbbl_to_show(),
-                container = sketch,
-                escape=FALSE,
-                options(list(pageLength = 100, dom='t')),
-                rownames=FALSE
-                )
+plotly::renderPlotly(
+  heatmaply::heatmaply(heatmap_matrix1(), 
+                       scale="row", 
+                       fontsize_col = 5, 
+                       Colv=FALSE, 
+                       main= paste0("Measure: ",input$measure1, ", Industry: ", input$agg_industry1),
+                       custom_hovertext=hover_text1())
 )
 ```
+
+
 
 
 `r page_titles[5]`  {data-navmenu="Table of Contents"}
