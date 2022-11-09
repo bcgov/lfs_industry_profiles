@@ -277,8 +277,6 @@ Row
 ```
 
 
-
-
 `r page_titles[4]`  {data-navmenu="Table of Contents"}
 ===========================================
 
@@ -314,6 +312,23 @@ tbbl_to_show <- reactive({
   temp[[1]]%>%
     mutate(Industry= str_replace_all(Industry, " ", "&nbsp")) #datatable strips out whitespace
 })
+
+sketch = htmltools::withTags(table(
+  class = 'display',
+  thead(
+    tr(
+      th(class="dt-center", colspan = 2, ''),
+      th(class="dt-center", colspan = 3, 'Monthly'),
+      th(class="dt-center", colspan = 2, 'Year to Date',
+       th(class="dt-center", colspan = 3, 'Level Change'),
+       th(class="dt-center", colspan = 3, 'Percent Change'),  
+       )
+    ),
+    tr(
+      lapply(names(for_tables[[2]][[1]]), th)
+    )
+  )
+))
 ```
 
 Row 
@@ -323,7 +338,12 @@ Row
 
 ```{r}
 DT::renderDT(
-  DT::datatable(tbbl_to_show(), escape=FALSE, rownames=FALSE, options(list(pageLength = 100, dom='t')))
+  DT::datatable(tbbl_to_show(),
+                container = sketch,
+                escape=FALSE,
+                options(list(pageLength = 100, dom='t')),
+                rownames=FALSE
+                )
 )
 ```
 
@@ -353,6 +373,7 @@ selectInput(
   selected =unique(forecasts$agg_level)[1],
   multiple = FALSE
 )
+
 ```
 
 Row 
