@@ -11,11 +11,14 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 #' TO DO before sourcing this file:
-#' delete old RTRA files from directory "data"
-#' upload the 4 .SAS files to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan)
-#' download the 4 resulting csv files (with names containing ftptemp4digNAICS and lfsstat4digNAICS) and place in directory "data"
+#'
+#' Get an RTRA account. (application form in directory `SAS`)
+#' delete last month's RTRA* files from directory `data`.
+#' upload the 2 .SAS files in directory `SAS` to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan).
+#' grab a coffee...
+#' download the 2 resulting csv files (From StatCan) and place in directory "data".
 
-#' Note that Jan 2026 the 201620 SAS files will need to be updated to 202630.
+#' Note that Jan 2026 the SAS files will need to be updated.
 tictoc::tic()
 # libraries--------------
 library(tidyverse)
