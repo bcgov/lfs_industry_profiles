@@ -1,0 +1,354 @@
+---
+title: "`r params$doc_title`"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    css: style.css
+params:
+  doc_title: "Dull LFS industry profiles"
+---
+
+```{r}
+library(flexdashboard)
+library(knitr)
+library(tidyverse)
+library(crosstalk)
+library(DT)
+library(plotly)
+
+level_change_plot <- function(shared_df){
+  fig <- plot_ly(shared_df, 
+        x =~ level_change_year, 
+        y =~ level_change_month,
+        hoverinfo="text",
+        hovertext = ~agg_level,
+        type = "scatter", 
+        mode = 'markers',
+        marker = list(size = ~ current/10000+2, opacity = 0.5))
+  config(fig, displayModeBar = FALSE)%>%
+    layout(xaxis = list(title = "Level Change Year"), 
+           yaxis = list(title = "Level Change Month")
+    )
+}
+
+percent_change_plot <- function(shared_df){
+  fig <- plot_ly(shared_df, 
+        x =~ percent_change_year, 
+        y =~ percent_change_month,
+        hoverinfo="text",
+        hovertext = ~agg_level,
+        type = "scatter", 
+        mode = 'markers',
+        marker = list(size = ~ current/10000+3, opacity = 0.5))
+  config(fig, displayModeBar = FALSE)%>%
+    layout(xaxis = list(title = "Percent Change Year", tickformat = '1%'), 
+           yaxis = list(title = "Percent Change Month", tickformat = '1%')
+    )
+}
+
+
+for_tables <- read_rds(here::here("out","for_tables.rds"))%>%
+  tidyr::unnest(data)%>%
+  ungroup()%>%
+  mutate(Characteristic = if_else(Characteristic=="", NA_character_, Characteristic))%>%
+  fill(Characteristic, .direction = "down")%>%
+  mutate(Industry= str_replace_all(Industry, " ", "&nbsp"))
+
+for_plots <- read_rds(here::here("out","for_heatmaps.rds"))%>%
+  rename(Characteristic=name)%>%
+  tidyr::unnest(data)%>%
+  ungroup()%>%
+  select(-medium, -low)
+
+Shared_table <- SharedData$new(for_tables)
+Shared_em <- SharedData$new(for_plots%>%filter(Characteristic=="Employed"), group = "industry")
+Shared_ft <- SharedData$new(for_plots%>%filter(Characteristic=="Full-Time"), group = "industry")
+Shared_lf <- SharedData$new(for_plots%>%filter(Characteristic=="Labour Force"), group = "industry")
+Shared_pt <- SharedData$new(for_plots%>%filter(Characteristic=="Part-Time"), group = "industry")
+Shared_un <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployed"), group = "industry")
+Shared_ur <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployment Rate"), group = "industry")
+
+page_titles <- c("Title Page",#replace with your page titles
+                 "Data table",
+                 "Level Changes",
+                 "Percent Changes",
+                 "Page 5",
+                 "Page 6",
+                 "Page 7",
+                 "Page 8",
+                 "Page 9",
+                 "Page 10",
+                 "Page 11",
+                 "Page 12"
+                 )
+
+```
+
+# `r page_titles[1]` {data-navmenu="Table of Contents"}
+
+
+Row {data-height=600}
+-------------------------------------
+
+```{r, out.width = "125%"}
+knitr::include_graphics("aest.png")#the cover image
+```
+
+Row {data-height=400}
+-------------------------------------
+
+###
+
+<h1 class="center">`r params$doc_title`.</h1> 
+
+<br><br>
+
+<h3> This a non-shiny Labour Force Survey Industry Profiles dashboard... </h3>
+
+# `r page_titles[2]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+### Inputs:
+
+```{r}
+  filter_select(
+    id = "high",
+    label = "Choose an industry",
+    sharedData = Shared_table,
+    group = ~`high`,
+    multiple = FALSE
+  )
+
+filter_select(
+    id = "char",
+    label = "Choose a characteristic",
+    sharedData = Shared_table,
+    group = ~`Characteristic`,
+    multiple = FALSE
+  )
+```
+
+## Column
+
+### `r page_titles[2]`
+
+```{r}
+sketch = htmltools::withTags(table(
+  class = 'display',
+  thead(
+    tr(
+      th(class="dt-center", colspan = 3, ''),
+      th(class="dt-center", colspan = 3, 'Monthly'),
+      th(class="dt-center", colspan = 2, 'Year to Date',
+       th(class="dt-center", colspan = 3, 'Level Change'),
+       th(class="dt-center", colspan = 3, 'Percent Change'),  
+       )
+    ),
+    tr(
+      lapply(names(for_tables), th)
+    )
+  )
+))
+
+Shared_table %>%
+  DT::datatable(
+    container = sketch,
+    rownames = FALSE,
+    escape = FALSE,
+    extensions = c('Buttons', 'FixedColumns'),
+    class = 'cell-border stripe',
+    options = list(
+    pageLength = 100,
+    dom = 'Bfrtip',
+    scrollX = TRUE,
+ #   fixedColumns = TRUE,
+    columnDefs = list(list(visible=FALSE, targets = c(0,1))),
+    buttons = c('csv', 'excel')))
+```
+
+
+# `r page_titles[3]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+### `r page_titles[3]`
+
+```{r}
+  filter_select(
+    id = "high_plots",
+    label = "Choose an industry",
+    sharedData = Shared_em,
+    group = ~`high`,
+    multiple = FALSE
+  )
+```
+
+Row {data-height=500}
+-------------------------------------
+
+### Employed
+
+```{r}
+level_change_plot(Shared_em)
+```
+
+
+### Full time
+
+```{r}
+level_change_plot(Shared_ft)
+```
+
+### Labour Force
+
+```{r}
+level_change_plot(Shared_lf)
+```
+
+
+Row {data-height=500}
+-------------------------------------
+
+### Part time
+
+```{r}
+level_change_plot(Shared_pt)
+```
+
+### Unemployed
+
+```{r}
+level_change_plot(Shared_un)
+```
+
+### Unemployment rate
+
+```{r}
+level_change_plot(Shared_ur)
+```
+
+
+# `r page_titles[4]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+### `r page_titles[4]`
+
+Row {data-height=500}
+-------------------------------------
+
+### Employed
+
+```{r}
+percent_change_plot(Shared_em)
+```
+
+
+### Full time
+
+```{r}
+percent_change_plot(Shared_ft)
+```
+
+### Labour Force
+
+```{r}
+percent_change_plot(Shared_lf)
+```
+
+
+Row {data-height=500}
+-------------------------------------
+
+### Part time
+
+```{r}
+percent_change_plot(Shared_pt)
+```
+
+### Unemployed
+
+```{r}
+percent_change_plot(Shared_un)
+```
+
+### Unemployment rate
+
+```{r}
+percent_change_plot(Shared_ur)
+```
+
+# `r page_titles[5]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+
+
+## Column
+
+### `r page_titles[5]`
+
+# `r page_titles[6]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+
+
+## Column
+
+### `r page_titles[6]`
+
+# `r page_titles[7]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+
+
+## Column
+
+### `r page_titles[7]`
+
+# `r page_titles[8]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+
+## Column
+
+### `r page_titles[8]`
+
+# `r page_titles[9]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+
+## Column
+
+### `r page_titles[9]`
+
+# `r page_titles[10]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+
+## Column
+
+### `r page_titles[10]`
+
+# `r page_titles[11]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+
+## Column
+
+### `r page_titles[11]`
+
+# `r page_titles[12]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+## Column
+
+### `r page_titles[12]`

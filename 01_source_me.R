@@ -38,7 +38,9 @@ accuracy_small <- .1 #percentages rounded to nearest tenth
 source(here::here("R", "functions.R"))
 # Start by creating a mapping file from naics to various levels of aggregation----------------
 # input file mapping.xlsx uses leading spaces to indicate hierarchy....
-raw_mapping <- read_excel(here::here("data", "mapping.xlsx"), trim_ws = FALSE) %>%
+human_mapping <- read_excel(here::here("data", "mapping.xlsx"), trim_ws = FALSE)
+
+raw_mapping <- human_mapping%>%
   janitor::clean_names() %>%
   mutate(
     spaces = str_count(industry, "\\G "),
@@ -145,7 +147,7 @@ low_agg <- agg_level(truncated, low)
 smoothed_data <- bind_rows(high_agg, medium_agg, low_agg)%>%
   na.omit() %>%
   mutate(#data = map(data, stl_smooth), #thought this might be better than simple moving average...
-        data = map(data, trail_ma, months = ma_months), # simple moving average smooth of data
+        #data = map(data, trail_ma, months = ma_months), # simple moving average smooth of data
         data = map(data, add_vars)) #add in labour force and unemployment rate
 
 smoothed_with_mapping <- full_join(smoothed_data, agg, by=c("agg_level"="industry"))%>%
@@ -219,15 +221,15 @@ with_formatting <- no_format%>%
   mutate(percent_change_year = percent(percent_change_year, accuracy = accuracy_small),
         percent_change_month = percent(percent_change_month, accuracy = accuracy_small),
         percent_change_ytd = percent(percent_change_ytd, accuracy = accuracy_small),
-        current = if_else(name == "unemployment_rate",
-                          percent(current, accuracy = accuracy_small),
-                          comma(current, accuracy = accuracy_large)),
-        previous_year = if_else(name == "unemployment_rate",
-                                percent(previous_year, accuracy = accuracy_small),
-                                comma(previous_year, accuracy = accuracy_large)),
-        previous_month = if_else(name == "unemployment_rate",
-                                 percent(previous_month, accuracy = accuracy_small),
-                                 comma(previous_month, accuracy = accuracy_large)),
+        current = case_when(name=="unemployment_rate" ~ percent(current, accuracy = accuracy_small),
+                            current < 1500 ~ "suppressed",
+                            TRUE ~ comma(current, accuracy = accuracy_large)),
+        previous_year=case_when(name=="unemployment_rate" ~ percent(previous_year, accuracy = accuracy_small),
+                                previous_year<1500 ~ "suppressed",
+                                TRUE ~ comma(previous_year, accuracy = accuracy_large)),
+        previous_month=case_when(name=="unemployment_rate" ~ percent(previous_month, accuracy = accuracy_small),
+                                previous_month<1500 ~ "suppressed",
+                                TRUE ~ comma(previous_month, accuracy = accuracy_large)),
         level_change_year = if_else(name == "unemployment_rate",
                                     percent(level_change_year, accuracy = accuracy_small),
                                     comma(level_change_year, accuracy = accuracy_large)),
@@ -261,6 +263,12 @@ write_rds(with_formatting, here::here("out","for_tables.rds"))
 
 # write to excel-----------------
 wb <- loadWorkbook(here::here("data", "template.xlsx")) # get the desired sheet header
+createSheet(wb, name = "Mapping for humans")
+setColumnWidth(wb, sheet = "Mapping for humans", column = 1:2, width = c(24000,7000))
+writeWorksheet(wb, human_mapping, sheet="Mapping for humans")
+createSheet(wb, name = "Mapping for machines")
+setColumnWidth(wb, sheet = "Mapping for machines", column = 2:4, width = c(16000, 24000, 16000))
+writeWorksheet(wb, mapping, sheet="Mapping for machines")
 with_formatting%>%
   mutate(walk2(data, high, write_sheet)) # replicates the template sheet and writes data to each sheet
 removeSheet(wb, "layout") # get rid of the template
