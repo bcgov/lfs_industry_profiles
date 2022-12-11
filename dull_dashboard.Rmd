@@ -15,6 +15,7 @@ library(tidyverse)
 library(crosstalk)
 library(DT)
 library(plotly)
+library(ggiraph)
 
 level_change_plot <- function(shared_df){
   fig <- plot_ly(shared_df, 
@@ -24,7 +25,8 @@ level_change_plot <- function(shared_df){
         hovertext = ~agg_level,
         type = "scatter", 
         mode = 'markers',
-        marker = list(size = ~ current/10000+2, opacity = 0.5))
+        marker = list(size = ~ 2+20*(current-min(current, na.rm=TRUE))/
+                                     (max(current, na.rm=TRUE)-min(current, na.rm=TRUE)), opacity = 0.5))
   config(fig, displayModeBar = FALSE)%>%
     layout(xaxis = list(title = "Level Change Year"), 
            yaxis = list(title = "Level Change Month")
@@ -39,13 +41,13 @@ percent_change_plot <- function(shared_df){
         hovertext = ~agg_level,
         type = "scatter", 
         mode = 'markers',
-        marker = list(size = ~ current/10000+3, opacity = 0.5))
+        marker = list(size = ~ 2+20*(current-min(current, na.rm=TRUE))
+                                    /(max(current, na.rm=TRUE)-min(current, na.rm=TRUE)), opacity = 0.5))
   config(fig, displayModeBar = FALSE)%>%
     layout(xaxis = list(title = "Percent Change Year", tickformat = '1%'), 
            yaxis = list(title = "Percent Change Month", tickformat = '1%')
     )
 }
-
 
 for_tables <- read_rds(here::here("out","for_tables.rds"))%>%
   tidyr::unnest(data)%>%
@@ -57,8 +59,7 @@ for_tables <- read_rds(here::here("out","for_tables.rds"))%>%
 for_plots <- read_rds(here::here("out","for_heatmaps.rds"))%>%
   rename(Characteristic=name)%>%
   tidyr::unnest(data)%>%
-  ungroup()%>%
-  select(-medium, -low)
+  ungroup()
 
 Shared_table <- SharedData$new(for_tables)
 Shared_em <- SharedData$new(for_plots%>%filter(Characteristic=="Employed"), group = "industry")
@@ -72,7 +73,7 @@ page_titles <- c("Title Page",#replace with your page titles
                  "Data table",
                  "Level Changes",
                  "Percent Changes",
-                 "Page 5",
+                 "Time Series",
                  "Page 6",
                  "Page 7",
                  "Page 8",
@@ -283,11 +284,10 @@ percent_change_plot(Shared_ur)
 
 ## Inputs {.sidebar}
 
-
-
 ## Column
 
 ### `r page_titles[5]`
+
 
 # `r page_titles[6]` {data-navmenu="Table of Contents"}
 
