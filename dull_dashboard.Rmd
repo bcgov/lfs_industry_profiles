@@ -17,6 +17,19 @@ library(DT)
 library(plotly)
 library(ggiraph)
 
+time_series_plot <- function(shared_df){ 
+  fig <- plot_ly(shared_df, 
+          x=~date, 
+          y=~value, 
+          hoverinfo = "text",
+          hovertext = ~agg_level,
+          color = ~agg_level,
+          type = 'scatter', 
+          mode = 'lines')%>% 
+    layout(showlegend = FALSE)
+  config(fig, displayModeBar = FALSE)
+}
+
 level_change_plot <- function(shared_df){
   fig <- plot_ly(shared_df, 
         x =~ level_change_year, 
@@ -55,19 +68,30 @@ for_tables <- read_rds(here::here("out","for_tables.rds"))%>%
   mutate(Characteristic = if_else(Characteristic=="", NA_character_, Characteristic))%>%
   fill(Characteristic, .direction = "down")%>%
   mutate(Industry= str_replace_all(Industry, " ", "&nbsp"))
+Shared_table <- SharedData$new(for_tables)
 
 for_plots <- read_rds(here::here("out","for_heatmaps.rds"))%>%
   rename(Characteristic=name)%>%
   tidyr::unnest(data)%>%
   ungroup()
-
-Shared_table <- SharedData$new(for_tables)
 Shared_em <- SharedData$new(for_plots%>%filter(Characteristic=="Employed"), group = "industry")
 Shared_ft <- SharedData$new(for_plots%>%filter(Characteristic=="Full-Time"), group = "industry")
 Shared_lf <- SharedData$new(for_plots%>%filter(Characteristic=="Labour Force"), group = "industry")
 Shared_pt <- SharedData$new(for_plots%>%filter(Characteristic=="Part-Time"), group = "industry")
 Shared_un <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployed"), group = "industry")
 Shared_ur <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployment Rate"), group = "industry")
+
+time_series<- read_rds(here::here("out","smoothed_with_mapping.rds"))%>%
+  unnest(data)%>%
+  pivot_longer(cols=-c(agg_level,name,high,medium,low), names_to = "date", values_to = "value")%>%
+  filter(agg_level==high)
+
+Shared_time_em <- SharedData$new(time_series%>%filter(name=="Employed"), group = "indus")
+Shared_time_ft <- SharedData$new(time_series%>%filter(name=="Full-Time"), group = "indus")
+Shared_time_lf <- SharedData$new(time_series%>%filter(name=="Labour Force"), group = "indus")
+Shared_time_pt <- SharedData$new(time_series%>%filter(name=="Part-Time"), group = "indus")
+Shared_time_un <- SharedData$new(time_series%>%filter(name=="Unemployed"), group = "indus")
+Shared_time_ur <- SharedData$new(time_series%>%filter(name=="Unemployment Rate"), group = "indus")
 
 page_titles <- c("Title Page",#replace with your page titles
                  "Data table",
@@ -91,7 +115,7 @@ page_titles <- c("Title Page",#replace with your page titles
 Row {data-height=600}
 -------------------------------------
 
-```{r, out.width = "125%"}
+```{r, out.width = "150%"}
 knitr::include_graphics("aest.png")#the cover image
 ```
 
@@ -282,11 +306,57 @@ percent_change_plot(Shared_ur)
 
 # `r page_titles[5]` {data-navmenu="Table of Contents"}
 
-## Inputs {.sidebar}
 
-## Column
+Row {data-height=500}
+-------------------------------------
 
-### `r page_titles[5]`
+### Employed
+
+```{r}
+time_series_plot(Shared_time_em)
+```
+
+
+### Full time
+
+```{r}
+time_series_plot(Shared_time_ft)
+```
+
+### Labour Force
+
+```{r}
+time_series_plot(Shared_time_lf)
+```
+
+
+Row {data-height=500}
+-------------------------------------
+
+### Part time
+
+```{r}
+time_series_plot(Shared_time_pt)
+```
+
+### Unemployed
+
+```{r}
+time_series_plot(Shared_time_un)
+```
+
+### Unemployment rate
+
+```{r}
+time_series_plot(Shared_time_ur)
+```
+
+
+
+
+
+
+
 
 
 # `r page_titles[6]` {data-navmenu="Table of Contents"}
