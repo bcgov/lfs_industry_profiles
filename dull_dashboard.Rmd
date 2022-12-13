@@ -15,20 +15,23 @@ library(tidyverse)
 library(crosstalk)
 library(DT)
 library(plotly)
-library(ggiraph)
+library(ggfortify)
 
-time_series_plot <- function(shared_df){ 
-  fig <- plot_ly(shared_df, 
-          x=~date, 
-          y=~value, 
-          hoverinfo = "text",
-          hovertext = ~agg_level,
-          color = ~agg_level,
-          type = 'scatter', 
-          mode = 'lines')%>% 
-    layout(showlegend = FALSE)
-  config(fig, displayModeBar = FALSE)
+my_biplot <- function(pcs){
+  rownames(pcs$x) <- word(rownames(pcs$x), 1)
+  plt <- autoplot(pcs,
+                  label=TRUE,
+                  label.size=2,
+                  shape=4,
+                  alpha=0,
+                  loadings=TRUE, 
+                  loadings.label = TRUE, 
+                  loadings.label.size = 2)+
+    theme_minimal()
+  ggplotly(plt)%>% 
+    config(displayModeBar = F)
 }
+
 
 level_change_plot <- function(shared_df){
   fig <- plot_ly(shared_df, 
@@ -57,8 +60,8 @@ percent_change_plot <- function(shared_df){
         marker = list(size = ~ 2+20*(current-min(current, na.rm=TRUE))
                                     /(max(current, na.rm=TRUE)-min(current, na.rm=TRUE)), opacity = 0.5))
   config(fig, displayModeBar = FALSE)%>%
-    layout(xaxis = list(title = "Percent Change Year", tickformat = '1%'), 
-           yaxis = list(title = "Percent Change Month", tickformat = '1%')
+    layout(xaxis = list(title = "Percent Change Year", tickformat = '1%', range=c(-1,1)), 
+           yaxis = list(title = "Percent Change Month", tickformat = '1%', range=c(-1,1))
     )
 }
 
@@ -81,23 +84,14 @@ Shared_pt <- SharedData$new(for_plots%>%filter(Characteristic=="Part-Time"), gro
 Shared_un <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployed"), group = "industry")
 Shared_ur <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployment Rate"), group = "industry")
 
-time_series<- read_rds(here::here("out","smoothed_with_mapping.rds"))%>%
-  unnest(data)%>%
-  pivot_longer(cols=-c(agg_level,name,high,medium,low), names_to = "date", values_to = "value")%>%
-  filter(agg_level==high)
-
-Shared_time_em <- SharedData$new(time_series%>%filter(name=="Employed"), group = "indus")
-Shared_time_ft <- SharedData$new(time_series%>%filter(name=="Full-Time"), group = "indus")
-Shared_time_lf <- SharedData$new(time_series%>%filter(name=="Labour Force"), group = "indus")
-Shared_time_pt <- SharedData$new(time_series%>%filter(name=="Part-Time"), group = "indus")
-Shared_time_un <- SharedData$new(time_series%>%filter(name=="Unemployed"), group = "indus")
-Shared_time_ur <- SharedData$new(time_series%>%filter(name=="Unemployment Rate"), group = "indus")
+time_series<- read_rds(here::here("out","for_pca.rds"))%>%
+  mutate(biplot=map(pcs, my_biplot))
 
 page_titles <- c("Title Page",#replace with your page titles
                  "Data table",
                  "Level Changes",
                  "Percent Changes",
-                 "Time Series",
+                 "Biplots of Time series features",
                  "Page 6",
                  "Page 7",
                  "Page 8",
@@ -152,7 +146,11 @@ filter_select(
     group = ~`Characteristic`,
     multiple = FALSE
   )
+
 ```
+
+
+
 
 ## Column
 
@@ -187,7 +185,6 @@ Shared_table %>%
     pageLength = 100,
     dom = 'Bfrtip',
     scrollX = TRUE,
- #   fixedColumns = TRUE,
     columnDefs = list(list(visible=FALSE, targets = c(0,1))),
     buttons = c('csv', 'excel')))
 ```
@@ -312,21 +309,30 @@ Row {data-height=500}
 
 ### Employed
 
-```{r}
-time_series_plot(Shared_time_em)
+```{r, echo = FALSE, results = 'asis'}
+plt <- time_series%>%
+  filter(name=="Employed")%>%
+  pull(biplot)
+plt[[1]]
 ```
 
 
 ### Full time
 
 ```{r}
-time_series_plot(Shared_time_ft)
+plt <- time_series%>%
+  filter(name=="Full-Time")%>%
+  pull(biplot)
+plt[[1]]
 ```
 
 ### Labour Force
 
 ```{r}
-time_series_plot(Shared_time_lf)
+plt <- time_series%>%
+  filter(name=="Labour Force")%>%
+  pull(biplot)
+plt[[1]]
 ```
 
 
@@ -336,19 +342,28 @@ Row {data-height=500}
 ### Part time
 
 ```{r}
-time_series_plot(Shared_time_pt)
+plt <- time_series%>%
+  filter(name=="Part-Time")%>%
+  pull(biplot)
+plt[[1]]
 ```
 
 ### Unemployed
 
 ```{r}
-time_series_plot(Shared_time_un)
+plt <- time_series%>%
+  filter(name=="Unemployed")%>%
+  pull(biplot)
+plt[[1]]
 ```
 
 ### Unemployment rate
 
 ```{r}
-time_series_plot(Shared_time_ur)
+plt <- time_series%>%
+  filter(name=="Unemployment Rate")%>%
+  pull(biplot)
+plt[[1]]
 ```
 
 

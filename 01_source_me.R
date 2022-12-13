@@ -26,7 +26,7 @@ library(lubridate)
 library(readxl)
 library(XLConnect)
 library(scales)
-library(fpp3)
+#library(fpp3)
 #library(tsibble) #these 3 libraries only needed if doing stl decomp
 #library(feasts)
 #library(fable)
@@ -160,22 +160,54 @@ smoothed_with_mapping <- full_join(smoothed_data, agg, by=c("agg_level"="industr
 
   write_rds(smoothed_with_mapping, here::here("out","smoothed_with_mapping.rds"))
 
-data_for_forecasts <- smoothed_with_mapping%>%
-  filter(high==medium)%>%
-  ungroup()%>%
-  select(agg_level, name, data)%>%
-  unnest(data)%>%
-  pivot_longer(cols=-c(agg_level, name), names_to = "date", values_to = "value")%>%
-  mutate(date=yearmonth(date))%>%
-  as_tsibble(key=c(agg_level, name), index = date)
+  keep_list <- c("agg_level",
+                 "trend_strength",
+                 "seasonal_strength_year",
+                 "spikiness",
+                 "linearity",
+                 "curvature",
+                 "shift_level_max",
+                 "spectral_entropy",
+                 "coef_hurst"
+  )
 
-write_rds(data_for_forecasts, here::here("out","data_for_forecasts.rds"))
+  for_pca <- smoothed_with_mapping %>%
+    unnest(data)%>%
+    pivot_longer(cols=-c(agg_level, name,high,medium,low), names_to = "date", values_to = "value")%>%
+    filter(agg_level==high)%>%
+    ungroup()%>%
+    select(-high, -medium, -low)%>%
+    mutate(date=tsibble::yearmonth(date))%>%
+    group_by(name)%>%
+    nest()%>%
+    mutate(data=map(data, tsibble::tsibble, key=agg_level, index=date),
+           features=map(data, function(tsbbl) tsbbl %>% features(value, feature_set(pkgs="feasts"))),
+           features=map(features, select, all_of(keep_list)),
+           features=map(features, column_to_rownames, var="agg_level"),
+           features=map(features, fix_column_names),
+           pcs=map(features, prcomp, scale=TRUE)#,
+      #     biplot=map(pcs, my_biplot)
+    )
 
-forecasts <- data_for_forecasts%>%
-  model(ets = ETS(log(value)))%>%
-  forecast(h = 12)
+  write_rds(for_pca, here::here("out","for_pca.rds"))
 
-write_rds(forecasts, here::here("out","forecasts.rds"))
+#if we are not doing forecasting, dont need smoothed_with_mapping
+# data_for_forecasts <- smoothed_with_mapping%>%
+#   filter(high==medium)%>%
+#   ungroup()%>%
+#   select(agg_level, name, data)%>%
+#   unnest(data)%>%
+#   pivot_longer(cols=-c(agg_level, name), names_to = "date", values_to = "value")%>%
+#   mutate(date=yearmonth(date))%>%
+#   as_tsibble(key=c(agg_level, name), index = date)
+#
+# write_rds(data_for_forecasts, here::here("out","data_for_forecasts.rds"))
+#
+# forecasts <- data_for_forecasts%>%
+#   model(ets = ETS(log(value)))%>%
+#   forecast(h = 12)
+#
+# write_rds(forecasts, here::here("out","forecasts.rds"))
 
 no_format <- smoothed_data %>%
   mutate(current = map(data, get_smoothed, 0), # get current value of smoothed data

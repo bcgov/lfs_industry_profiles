@@ -11,6 +11,11 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 #' Pre-processing Naics e.g.  1111-1121, 1200, 1220-1300, replace - with : and then separate by comma, return tibble.
+
+fix_column_names <- function(tbbl){
+  colnames(tbbl) <- wrapR::make_title(colnames(tbbl))
+  return(tbbl)
+}
 separate_naics <- function(my_string) {
   vec <- my_string %>%
     str_replace_all("-", ":") %>%
