@@ -15,55 +15,25 @@ library(tidyverse)
 library(crosstalk)
 library(DT)
 library(plotly)
-library(ggfortify)
+library(heatmaply)
+source(here::here("R","functions.R"))
 
-my_biplot <- function(pcs){
-  rownames(pcs$x) <- word(rownames(pcs$x), 1)
-  plt <- autoplot(pcs,
-                  label=TRUE,
-                  label.size=2,
-                  shape=4,
-                  alpha=0,
-                  loadings=TRUE, 
-                  loadings.label = TRUE, 
-                  loadings.label.size = 2)+
-    theme_minimal()
-  ggplotly(plt)%>% 
-    config(displayModeBar = F)
-}
+smoothed_with_mapping <- read_rds(here::here("out","smoothed_with_mapping.rds"))
 
+for_ts_plots <- smoothed_with_mapping%>%  
+    ungroup()%>%
+  select(agg_level, name, high, low, data)%>%
+  unnest(data)%>%
+  pivot_longer(cols=-c(agg_level, name, high, low), names_to = "date", values_to="value")%>%
+  mutate(date=lubridate::ymd(date))%>%
+  ungroup()%>%
+  filter(is.na(low))
+shared_ts <- SharedData$new(for_ts_plots)
 
-level_change_plot <- function(shared_df){
-  fig <- plot_ly(shared_df, 
-        x =~ level_change_year, 
-        y =~ level_change_month,
-        hoverinfo="text",
-        hovertext = ~agg_level,
-        type = "scatter", 
-        mode = 'markers',
-        marker = list(size = ~ 2+20*(current-min(current, na.rm=TRUE))/
-                                     (max(current, na.rm=TRUE)-min(current, na.rm=TRUE)), opacity = 0.5))
-  config(fig, displayModeBar = FALSE)%>%
-    layout(xaxis = list(title = "Level Change Year"), 
-           yaxis = list(title = "Level Change Month")
-    )
-}
-
-percent_change_plot <- function(shared_df){
-  fig <- plot_ly(shared_df, 
-        x =~ percent_change_year, 
-        y =~ percent_change_month,
-        hoverinfo="text",
-        hovertext = ~agg_level,
-        type = "scatter", 
-        mode = 'markers',
-        marker = list(size = ~ 2+20*(current-min(current, na.rm=TRUE))
-                                    /(max(current, na.rm=TRUE)-min(current, na.rm=TRUE)), opacity = 0.5))
-  config(fig, displayModeBar = FALSE)%>%
-    layout(xaxis = list(title = "Percent Change Year", tickformat = '1%', range=c(-1,1)), 
-           yaxis = list(title = "Percent Change Month", tickformat = '1%', range=c(-1,1))
-    )
-}
+for_heatmaps <- smoothed_with_mapping%>%
+  filter(agg_level==high)%>%
+  ungroup()%>%
+  select(agg_level, name, data)
 
 for_tables <- read_rds(here::here("out","for_tables.rds"))%>%
   tidyr::unnest(data)%>%
@@ -73,10 +43,11 @@ for_tables <- read_rds(here::here("out","for_tables.rds"))%>%
   mutate(Industry= str_replace_all(Industry, " ", "&nbsp"))
 Shared_table <- SharedData$new(for_tables)
 
-for_plots <- read_rds(here::here("out","for_heatmaps.rds"))%>%
-  rename(Characteristic=name)%>%
+for_plots <- read_rds(here::here("out","for_plots.rds"))%>%
+  dplyr::rename(Characteristic=name)%>%
   tidyr::unnest(data)%>%
   ungroup()
+
 Shared_em <- SharedData$new(for_plots%>%filter(Characteristic=="Employed"), group = "industry")
 Shared_ft <- SharedData$new(for_plots%>%filter(Characteristic=="Full-Time"), group = "industry")
 Shared_lf <- SharedData$new(for_plots%>%filter(Characteristic=="Labour Force"), group = "industry")
@@ -84,23 +55,19 @@ Shared_pt <- SharedData$new(for_plots%>%filter(Characteristic=="Part-Time"), gro
 Shared_un <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployed"), group = "industry")
 Shared_ur <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployment Rate"), group = "industry")
 
-time_series<- read_rds(here::here("out","for_pca.rds"))%>%
-  mutate(biplot=map(pcs, my_biplot))
+for_pca<- read_rds(here::here("out","for_pca.rds"))%>%
+  mutate(biplot=map(pcs, biplot_wrapper))
 
 page_titles <- c("Title Page",#replace with your page titles
                  "Data table",
                  "Level Changes",
                  "Percent Changes",
-                 "Biplots of Time series features",
-                 "Page 6",
-                 "Page 7",
-                 "Page 8",
-                 "Page 9",
-                 "Page 10",
-                 "Page 11",
-                 "Page 12"
+                 "Biplots of Employed and Unemployed",
+                 "Biplots of Full time and Part time",
+                 "Biplots of Labour Force and Unemployment rate",
+                 "Time series plots",
+                 "Heatmaps"
                  )
-
 ```
 
 # `r page_titles[1]` {data-navmenu="Table of Contents"}
@@ -149,7 +116,13 @@ filter_select(
 
 ```
 
-
+```{js, echo=FALSE}
+<!-- function filter_default(){ -->
+<!--   document.getElementById("high").getElementsByClassName("selectized")[0].selectize.setValue("Construction", false)  -->
+<!--   document.getElementById("char").getElementsByClassName("selectized")[0].selectize.setValue("Employed", false) -->
+<!-- } -->
+<!-- $(document).ready(filter_default); -->
+```
 
 
 ## Column
@@ -303,47 +276,13 @@ percent_change_plot(Shared_ur)
 
 # `r page_titles[5]` {data-navmenu="Table of Contents"}
 
-
-Row {data-height=500}
--------------------------------------
+## Column
 
 ### Employed
 
-```{r, echo = FALSE, results = 'asis'}
-plt <- time_series%>%
+```{r}
+plt <- for_pca%>%
   filter(name=="Employed")%>%
-  pull(biplot)
-plt[[1]]
-```
-
-
-### Full time
-
-```{r}
-plt <- time_series%>%
-  filter(name=="Full-Time")%>%
-  pull(biplot)
-plt[[1]]
-```
-
-### Labour Force
-
-```{r}
-plt <- time_series%>%
-  filter(name=="Labour Force")%>%
-  pull(biplot)
-plt[[1]]
-```
-
-
-Row {data-height=500}
--------------------------------------
-
-### Part time
-
-```{r}
-plt <- time_series%>%
-  filter(name=="Part-Time")%>%
   pull(biplot)
 plt[[1]]
 ```
@@ -351,8 +290,46 @@ plt[[1]]
 ### Unemployed
 
 ```{r}
-plt <- time_series%>%
+plt <- for_pca%>%
   filter(name=="Unemployed")%>%
+  pull(biplot)
+plt[[1]]
+```
+
+
+# `r page_titles[6]` {data-navmenu="Table of Contents"}
+
+## Column
+
+### Full time
+
+```{r}
+plt <- for_pca%>%
+  filter(name=="Full-Time")%>%
+  pull(biplot)
+plt[[1]]
+```
+
+### Part time
+
+```{r}
+plt <- for_pca%>%
+  filter(name=="Part-Time")%>%
+  pull(biplot)
+plt[[1]]
+```
+
+
+# `r page_titles[7]` {data-navmenu="Table of Contents"}
+
+
+## Column
+
+### Labour Force
+
+```{r}
+plt <- for_pca%>%
+  filter(name=="Labour Force")%>%
   pull(biplot)
 plt[[1]]
 ```
@@ -360,80 +337,75 @@ plt[[1]]
 ### Unemployment rate
 
 ```{r}
-plt <- time_series%>%
+plt <- for_pca%>%
   filter(name=="Unemployment Rate")%>%
   pull(biplot)
 plt[[1]]
 ```
 
 
-
-
-
-
-
-
-
-# `r page_titles[6]` {data-navmenu="Table of Contents"}
-
-## Inputs {.sidebar}
-
-
-
-## Column
-
-### `r page_titles[6]`
-
-# `r page_titles[7]` {data-navmenu="Table of Contents"}
-
-## Inputs {.sidebar}
-
-
-
-## Column
-
-### `r page_titles[7]`
-
 # `r page_titles[8]` {data-navmenu="Table of Contents"}
 
 ## Inputs {.sidebar}
 
+```{r}
+  filter_select(
+    id = "high_ts",
+    label = "Choose an industry",
+    sharedData = shared_ts,
+    group = ~ high,
+    multiple = FALSE
+  )
+
+filter_select(
+    id = "char_ts",
+    label = "Choose a characteristic",
+    sharedData = shared_ts,
+    group = ~ name,
+    multiple = FALSE
+  )
+
+```
+
+```{js, echo=FALSE}
+function filter_default(){
+  document.getElementById("high_ts").getElementsByClassName("selectized")[0].selectize.setValue("Construction", false)
+  document.getElementById("char_ts").getElementsByClassName("selectized")[0].selectize.setValue("Employed", false)
+}
+$(document).ready(filter_default);
+```
 
 ## Column
 
 ### `r page_titles[8]`
 
+```{r}
+plot_ly(shared_ts, 
+        x=~date, 
+        y=~value, 
+        color=~agg_level, 
+        type= "scatter", 
+        mode="line", 
+        text=~agg_level,
+        hoverinfo = 'text')%>%
+ # config(displayModeBar = FALSE)%>%
+  layout(xaxis = list(title = ''), yaxis = list(title = ''))
+```
+
 # `r page_titles[9]` {data-navmenu="Table of Contents"}
 
-## Inputs {.sidebar}
+Column {.tabset}
+-------------------------------------
+   
+### Employed
 
+```{r}
+my_heatmap("Employed")
+```   
+ 
+### Unemployed
+    
+```{r}
+my_heatmap("Unemployed")
+```
 
-## Column
-
-### `r page_titles[9]`
-
-# `r page_titles[10]` {data-navmenu="Table of Contents"}
-
-## Inputs {.sidebar}
-
-
-## Column
-
-### `r page_titles[10]`
-
-# `r page_titles[11]` {data-navmenu="Table of Contents"}
-
-## Inputs {.sidebar}
-
-
-## Column
-
-### `r page_titles[11]`
-
-# `r page_titles[12]` {data-navmenu="Table of Contents"}
-
-## Inputs {.sidebar}
-
-## Column
-
-### `r page_titles[12]`

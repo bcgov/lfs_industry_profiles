@@ -26,10 +26,7 @@ library(lubridate)
 library(readxl)
 library(XLConnect)
 library(scales)
-#library(fpp3)
-#library(tsibble) #these 3 libraries only needed if doing stl decomp
-#library(feasts)
-#library(fable)
+library(fpp3)
 # constants---------------
 ma_months <- 3 #how many months to use for smoothing the data
 accuracy_large <- 100 #levels rounded to nearest hundred
@@ -158,7 +155,7 @@ smoothed_with_mapping <- full_join(smoothed_data, agg, by=c("agg_level"="industr
   mutate(name=str_to_title(str_replace_all(name, "_", " ")),
          data=map(data, pivot_wider, names_from="date", values_from="value"))
 
-  write_rds(smoothed_with_mapping, here::here("out","smoothed_with_mapping.rds"))
+write_rds(smoothed_with_mapping, here::here("out","smoothed_with_mapping.rds"))
 
   keep_list <- c("agg_level",
                  "trend_strength",
@@ -181,12 +178,11 @@ smoothed_with_mapping <- full_join(smoothed_data, agg, by=c("agg_level"="industr
     group_by(name)%>%
     nest()%>%
     mutate(data=map(data, tsibble::tsibble, key=agg_level, index=date),
-           features=map(data, function(tsbbl) tsbbl %>% features(value, feature_set(pkgs="feasts"))),
+           features=map(data, function(tsbbl) tsbbl %>% features(value, feature_set(pkgs = "feasts"))),
            features=map(features, select, all_of(keep_list)),
            features=map(features, column_to_rownames, var="agg_level"),
            features=map(features, fix_column_names),
-           pcs=map(features, prcomp, scale=TRUE)#,
-      #     biplot=map(pcs, my_biplot)
+           pcs=map(features, prcomp, scale=TRUE)
     )
 
   write_rds(for_pca, here::here("out","for_pca.rds"))
@@ -246,7 +242,7 @@ full_join(no_format, agg, by=c("agg_level"="industry"))%>%
   group_by(agg_level, high, medium, low, name)%>%
   nest()%>%
   mutate(name=str_to_title(str_replace_all(name, "_", " ")))%>%
-write_rds(here::here("out","for_heatmaps.rds"))
+write_rds(here::here("out","for_plots.rds"))
 
 # formatting the output for excel
 with_formatting <- no_format%>%

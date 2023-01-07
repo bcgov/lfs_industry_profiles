@@ -169,40 +169,230 @@ write_sheet <- function(tbbl, long_name) {
     rownames = FALSE
   )
 }
-stl_smooth <- function(tbbl){
-  tbbl%>%
-    mutate(date=yearmonth(date))%>%
-    tsibble(key=name, index = date)%>%
-    model(stl = STL(value~ trend(window = 5)+ season(window = "periodic"),
-                    robust = TRUE))%>%
-    components()%>%
-    as_tsibble()%>%
-    mutate(date=lubridate::ym(date))%>%
-    select(name, date, smoothed=trend)%>%
-    rename(value=smoothed)%>%
-    as_tibble()
-}
+# stl_smooth <- function(tbbl){
+#   tbbl%>%
+#     mutate(date=yearmonth(date))%>%
+#     tsibble(key=name, index = date)%>%
+#     model(stl = STL(value~ trend(window = 5)+ season(window = "periodic"),
+#                     robust = TRUE))%>%
+#     components()%>%
+#     as_tsibble()%>%
+#     mutate(date=lubridate::ym(date))%>%
+#     select(name, date, smoothed=trend)%>%
+#     rename(value=smoothed)%>%
+#     as_tibble()
+# }
 
 rescale01 <- function(tbbl, var, ...) {
   tbbl%>%
     mutate(value= ({{  var  }} - min({{  var  }}, ...)) / (max({{  var  }}, ...) - min({{  var  }}, ...)))
 }
 
-plot_forecasts <- function(historic, fcast, industry){
-  fcast %>%
-    filter(agg_level==industry) %>%
-    autoplot(historic)+
-    scale_y_continuous(trans="log", labels=scales::comma)+
-    labs(x="",
-         y="",
-         title=paste("12 Month Exponential Smoothing Forecasts for",industry, "Industry"))+
-    theme_minimal()+
-    facet_wrap(~name, nrow=2, scales = "free_y")
-}
+# plot_forecasts <- function(historic, fcast, industry){
+#   fcast %>%
+#     filter(agg_level==industry) %>%
+#     autoplot(historic)+
+#     scale_y_continuous(trans="log", labels=scales::comma)+
+#     labs(x="",
+#          y="",
+#          title=paste("12 Month Exponential Smoothing Forecasts for",industry, "Industry"))+
+#     theme_minimal()+
+#     facet_wrap(~name, nrow=2, scales = "free_y")
+# }
 make_title <- function(strng){
   strng <- str_to_title(str_replace_all(strng,"_"," "))
 }
 
+
+mybiplot <- function (pcobj, choices = 1:2, scale = 1, pc.biplot = TRUE,
+                      obs.scale = 1 - scale, var.scale = scale, groups = NULL,
+                      ellipse = FALSE, ellipse.prob = 0.68, labels = NULL, labels.size = 3,
+                      alpha = 1, var.axes = TRUE, circle = FALSE, circle.prob = 0.69,
+                      varname.size = 3, varname.adjust = 0, varname.abbrev = FALSE,
+                      arrow.alpha=.1, alpha.var=1, axis.text.size=10, ...){
+  library(ggplot2)
+  library(plyr)
+  library(scales)
+  library(grid)
+  stopifnot(length(choices) == 2)
+  if (inherits(pcobj, "prcomp")) {
+    nobs.factor <- sqrt(nrow(pcobj$x) - 1)
+    d <- pcobj$sdev
+    u <- sweep(pcobj$x, 2, 1/(d * nobs.factor), FUN = "*")
+    v <- pcobj$rotation
+  }
+  else if (inherits(pcobj, "princomp")) {
+    nobs.factor <- sqrt(pcobj$n.obs)
+    d <- pcobj$sdev
+    u <- sweep(pcobj$scores, 2, 1/(d * nobs.factor), FUN = "*")
+    v <- pcobj$loadings
+  }
+  else if (inherits(pcobj, "PCA")) {
+    nobs.factor <- sqrt(nrow(pcobj$call$X))
+    d <- unlist(sqrt(pcobj$eig)[1])
+    u <- sweep(pcobj$ind$coord, 2, 1/(d * nobs.factor), FUN = "*")
+    v <- sweep(pcobj$var$coord, 2, sqrt(pcobj$eig[1:ncol(pcobj$var$coord),
+                                                  1]), FUN = "/")
+  }
+  else if (inherits(pcobj, "lda")) {
+    nobs.factor <- sqrt(pcobj$N)
+    d <- pcobj$svd
+    u <- predict(pcobj)$x/nobs.factor
+    v <- pcobj$scaling
+    d.total <- sum(d^2)
+  }
+  else {
+    stop("Expected a object of class prcomp, princomp, PCA, or lda")
+  }
+  choices <- pmin(choices, ncol(u))
+  df.u <- as.data.frame(sweep(u[, choices], 2, d[choices]^obs.scale,
+                              FUN = "*"))
+  v <- sweep(v, 2, d^var.scale, FUN = "*")
+  df.v <- as.data.frame(v[, choices])
+  names(df.u) <- c("xvar", "yvar")
+  names(df.v) <- names(df.u)
+  if (pc.biplot) {
+    df.u <- df.u * nobs.factor
+  }
+  r <- sqrt(qchisq(circle.prob, df = 2)) * prod(colMeans(df.u^2))^(1/4)
+  v.scale <- rowSums(v^2)
+  df.v <- r * df.v/sqrt(max(v.scale))
+  if (obs.scale == 0) {
+    u.axis.labs <- paste("standardized PC", choices, sep = "")
+  }
+  else {
+    u.axis.labs <- paste("PC", choices, sep = "")
+  }
+  u.axis.labs <- paste(u.axis.labs, sprintf("(%0.1f%% explained var.)",
+                                            100 * pcobj$sdev[choices]^2/sum(pcobj$sdev^2)))
+  if (!is.null(labels)) {
+    df.u$labels <- labels
+  }
+  if (!is.null(groups)) {
+    df.u$groups <- groups
+  }
+  if (varname.abbrev) {
+    df.v$varname <- abbreviate(rownames(v))
+  }
+  else {
+    df.v$varname <- rownames(v)
+  }
+  df.v$angle <- with(df.v, (180/pi) * atan(yvar/xvar))
+  df.v$hjust = with(df.v, (1 - varname.adjust * sign(xvar))/2)
+  g <- ggplot(data = df.u, aes(x = xvar, y = yvar)) + xlab(u.axis.labs[1]) +
+    ylab(u.axis.labs[2]) + coord_equal()
+  if (var.axes) {
+    if (circle) {
+      theta <- c(seq(-pi, pi, length = 50), seq(pi, -pi,
+                                                length = 50))
+      circle <- data.frame(xvar = r * cos(theta), yvar = r *
+                             sin(theta))
+      g <- g + geom_path(data = circle, color = muted("white"),
+                         size = 1/2, alpha = 1/3)
+    }
+    g <- g + geom_segment(data = df.v, aes(x = 0, y = 0,
+                                           xend = xvar, yend = yvar), arrow = arrow(length = unit(1/2,
+                                                                                                  "picas")), alpha=arrow.alpha, color = muted("red"))
+  }
+  if (!is.null(df.u$labels)) {
+    if (!is.null(df.u$groups)) {
+      g <- g + geom_text(aes(label = labels, color = groups),
+                         size = labels.size)
+    }
+    else {
+      g <- g + geom_text(aes(label = labels), size = labels.size)
+    }
+  }
+  else {
+    if (!is.null(df.u$groups)) {
+      g <- g + geom_point(aes(color = groups), alpha = alpha)
+    }
+    else {
+      g <- g + geom_point(alpha = alpha)
+    }
+  }
+  if (!is.null(df.u$groups) && ellipse) {
+    theta <- c(seq(-pi, pi, length = 50), seq(pi, -pi, length = 50))
+    circle <- cbind(cos(theta), sin(theta))
+    ell <- ddply(df.u, "groups", function(x) {
+      if (nrow(x) <= 2) {
+        return(NULL)
+      }
+      sigma <- var(cbind(x$xvar, x$yvar))
+      mu <- c(mean(x$xvar), mean(x$yvar))
+      ed <- sqrt(qchisq(ellipse.prob, df = 2))
+      data.frame(sweep(circle %*% chol(sigma) * ed, 2,
+                       mu, FUN = "+"), groups = x$groups[1])
+    })
+    names(ell)[1:2] <- c("xvar", "yvar")
+    g <- g + geom_path(data = ell, aes(color = groups, group = groups))
+  }
+  if (var.axes) {
+    g <- g + geom_text(data = df.v, aes(label = varname,
+                                        x = xvar, y = yvar, angle = angle, hjust = hjust),
+                       alpha=alpha.var, color = "darkred", size = varname.size)
+  }
+  g <- g+
+    theme(axis.title=element_text(size=axis.text.size))
+
+  return(g)
+}
+
+biplot_wrapper <- function(pcs){
+  rownames(pcs$x) <- str_replace_all(word(rownames(pcs$x), 1),",","")
+  plt <- mybiplot(pcs, labels=rownames(pcs$x), labels.size=3, varname.size=3)+
+    theme_minimal()+
+    theme(plot.margin = unit(c(-.5, -2, 0, -2), "cm"))+
+    scale_x_continuous(expand = expansion(mult = 0.15))+
+    scale_y_continuous(expand = expansion(mult = 0.15))
+
+}
+
+level_change_plot <- function(shared_df){
+  plot_ly(shared_df,
+                 x =~ level_change_year,
+                 y =~ level_change_month,
+                 hoverinfo="text",
+                 hovertext = ~agg_level,
+                 type = "scatter",
+                 mode = 'markers',
+                 marker = list(size = ~ 2+20*(current-min(current, na.rm=TRUE))/
+                                 (max(current, na.rm=TRUE)-min(current, na.rm=TRUE)), opacity = 0.5))%>%
+    layout(xaxis = list(title = "Level Change Year"),
+           yaxis = list(title = "Level Change Month")
+    )
+}
+
+percent_change_plot <- function(shared_df){
+  plot_ly(shared_df,
+                 x =~ percent_change_year,
+                 y =~ percent_change_month,
+                 hoverinfo="text",
+                 hovertext = ~agg_level,
+                 type = "scatter",
+                 mode = 'markers',
+                 marker = list(size = ~ 2+20*(current-min(current, na.rm=TRUE))
+                               /(max(current, na.rm=TRUE)-min(current, na.rm=TRUE)), opacity = 0.5))%>%
+    layout(xaxis = list(title = "Percent Change Year", tickformat = '1%', range=c(-1,1)),
+           yaxis = list(title = "Percent Change Month", tickformat = '1%', range=c(-1,1))
+    )
+}
+
+my_heatmap <- function(var){
+  tbbl <- for_heatmaps%>%
+    filter(name==var)%>%
+    select(-name)%>%
+    unnest(data)%>%
+    column_to_rownames(var="agg_level")
+  mat <- tbbl%>%
+    mutate(across(everything(), ~paste0(var, " = ", scales::comma(.x))))
+  heatmaply(tbbl,
+            scale="row",
+            dendrogram = "row",
+            custom_hovertext = mat,
+            fontsize_col = 6,
+            column_text_angle = 90, main = var)
+}
 
 
 
