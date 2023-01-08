@@ -5,7 +5,7 @@ output:
     orientation: rows
     css: style.css
 params:
-  doc_title: "Dull LFS industry profiles"
+  doc_title: "LFS industry profiles"
 ---
 
 ```{r}
@@ -20,8 +20,8 @@ source(here::here("R","functions.R"))
 
 smoothed_with_mapping <- read_rds(here::here("out","smoothed_with_mapping.rds"))
 
-for_ts_plots <- smoothed_with_mapping%>%  
-    ungroup()%>%
+for_ts_plots <- smoothed_with_mapping%>%
+  ungroup()%>%
   select(agg_level, name, high, low, data)%>%
   unnest(data)%>%
   pivot_longer(cols=-c(agg_level, name, high, low), names_to = "date", values_to="value")%>%
@@ -62,9 +62,7 @@ page_titles <- c("Title Page",#replace with your page titles
                  "Data table",
                  "Level Changes",
                  "Percent Changes",
-                 "Biplots of Employed and Unemployed",
-                 "Biplots of Full time and Part time",
-                 "Biplots of Labour Force and Unemployment rate",
+                 "Biplots",
                  "Time series plots",
                  "Heatmaps"
                  )
@@ -72,24 +70,31 @@ page_titles <- c("Title Page",#replace with your page titles
 
 # `r page_titles[1]` {data-navmenu="Table of Contents"}
 
-
-Row {data-height=600}
--------------------------------------
+## Row {data-height="600"}
 
 ```{r, out.width = "150%"}
 knitr::include_graphics("aest.png")#the cover image
 ```
 
-Row {data-height=400}
--------------------------------------
+## Row {data-height="400"}
 
-###
+### 
 
-<h1 class="center">`r params$doc_title`.</h1> 
+<h1 class="center">
+
+`r params$doc_title`.
+
+</h1>
 
 <br><br>
 
-<h3> This a non-shiny Labour Force Survey Industry Profiles dashboard... </h3>
+<h3>Monthly Labour Force Survey, aggregated to 3 levels:</h3>
+
+- 16 high level industries.
+
+- 76 medium level industries.
+
+- 56 low level industries.
 
 # `r page_titles[2]` {data-navmenu="Table of Contents"}
 
@@ -123,7 +128,6 @@ filter_select(
 <!-- } -->
 <!-- $(document).ready(filter_default); -->
 ```
-
 
 ## Column
 
@@ -162,7 +166,6 @@ Shared_table %>%
     buttons = c('csv', 'excel')))
 ```
 
-
 # `r page_titles[3]` {data-navmenu="Table of Contents"}
 
 ## Inputs {.sidebar}
@@ -179,15 +182,13 @@ Shared_table %>%
   )
 ```
 
-Row {data-height=500}
--------------------------------------
+## Row {data-height="500"}
 
 ### Employed
 
 ```{r}
 level_change_plot(Shared_em)
 ```
-
 
 ### Full time
 
@@ -201,9 +202,7 @@ level_change_plot(Shared_ft)
 level_change_plot(Shared_lf)
 ```
 
-
-Row {data-height=500}
--------------------------------------
+## Row {data-height="500"}
 
 ### Part time
 
@@ -223,22 +222,19 @@ level_change_plot(Shared_un)
 level_change_plot(Shared_ur)
 ```
 
-
 # `r page_titles[4]` {data-navmenu="Table of Contents"}
 
 ## Inputs {.sidebar}
 
 ### `r page_titles[4]`
 
-Row {data-height=500}
--------------------------------------
+## Row {data-height="500"}
 
 ### Employed
 
 ```{r}
 percent_change_plot(Shared_em)
 ```
-
 
 ### Full time
 
@@ -252,9 +248,7 @@ percent_change_plot(Shared_ft)
 percent_change_plot(Shared_lf)
 ```
 
-
-Row {data-height=500}
--------------------------------------
+## Row {data-height="500"}
 
 ### Part time
 
@@ -276,7 +270,7 @@ percent_change_plot(Shared_ur)
 
 # `r page_titles[5]` {data-navmenu="Table of Contents"}
 
-## Column
+## Column {.tabset}
 
 ### Employed
 
@@ -296,11 +290,6 @@ plt <- for_pca%>%
 plt[[1]]
 ```
 
-
-# `r page_titles[6]` {data-navmenu="Table of Contents"}
-
-## Column
-
 ### Full time
 
 ```{r}
@@ -318,12 +307,6 @@ plt <- for_pca%>%
   pull(biplot)
 plt[[1]]
 ```
-
-
-# `r page_titles[7]` {data-navmenu="Table of Contents"}
-
-
-## Column
 
 ### Labour Force
 
@@ -343,8 +326,7 @@ plt <- for_pca%>%
 plt[[1]]
 ```
 
-
-# `r page_titles[8]` {data-navmenu="Table of Contents"}
+# `r page_titles[6]` {data-navmenu="Table of Contents"}
 
 ## Inputs {.sidebar}
 
@@ -377,7 +359,7 @@ $(document).ready(filter_default);
 
 ## Column
 
-### `r page_titles[8]`
+### `r page_titles[6]`
 
 ```{r}
 plot_ly(shared_ts, 
@@ -392,20 +374,42 @@ plot_ly(shared_ts,
   layout(xaxis = list(title = ''), yaxis = list(title = ''))
 ```
 
-# `r page_titles[9]` {data-navmenu="Table of Contents"}
+# `r page_titles[7]` {data-navmenu="Table of Contents"}
 
-Column {.tabset}
--------------------------------------
-   
+## Column {.tabset}
+
 ### Employed
 
 ```{r}
 my_heatmap("Employed")
-```   
- 
+```
+
 ### Unemployed
-    
+
 ```{r}
 my_heatmap("Unemployed")
 ```
 
+### Full-Time
+
+```{r}
+my_heatmap("Full-Time")
+```
+
+### Part-Time
+
+```{r}
+my_heatmap("Part-Time")
+```
+
+### Labour Force
+
+```{r}
+my_heatmap("Labour Force")
+```
+
+### Unemployment Rate
+
+```{r}
+my_heatmap("Unemployment Rate")
+```
