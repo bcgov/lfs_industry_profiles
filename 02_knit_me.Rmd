@@ -362,16 +362,17 @@ $(document).ready(filter_default);
 ### `r page_titles[6]`
 
 ```{r}
-plot_ly(shared_ts, 
-        x=~date, 
-        y=~value, 
-        color=~agg_level, 
-        type= "scatter", 
-        mode="line", 
+plot_ly(shared_ts,
+        x=~date,
+        y=~value,
+        color=~agg_level,
+        type= "scatter",
+        mode="line",
         text=~agg_level,
         hoverinfo = 'text')%>%
  # config(displayModeBar = FALSE)%>%
   layout(xaxis = list(title = ''), yaxis = list(title = ''))
+
 ```
 
 # `r page_titles[7]` {data-navmenu="Table of Contents"}

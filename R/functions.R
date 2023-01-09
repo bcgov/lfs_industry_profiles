@@ -384,12 +384,10 @@ my_heatmap <- function(var){
     select(-name)%>%
     unnest(data)%>%
     column_to_rownames(var="agg_level")
-  mat <- tbbl%>%
-    mutate(across(everything(), ~paste0(var, " = ", scales::comma(.x))))
   heatmaply(tbbl,
             scale="row",
             dendrogram = "row",
-            custom_hovertext = mat,
+            custom_hovertext = tbbl,
             fontsize_col = 6,
             column_text_angle = 90, main = var)
 }
