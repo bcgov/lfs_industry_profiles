@@ -16,9 +16,12 @@ library(crosstalk)
 library(DT)
 library(plotly)
 library(heatmaply)
+library(patchwork)
 source(here::here("R","functions.R"))
 
 smoothed_with_mapping <- read_rds(here::here("out","smoothed_with_mapping.rds"))
+
+industries <- unique(smoothed_with_mapping$high)
 
 for_ts_plots <- smoothed_with_mapping%>%
   ungroup()%>%
@@ -58,14 +61,14 @@ Shared_ur <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployment Rat
 for_pca<- read_rds(here::here("out","for_pca.rds"))%>%
   mutate(biplot=map(pcs, biplot_wrapper))
 
-page_titles <- c("Title Page",#replace with your page titles
+page_titles <- c(c("Title Page",#replace with your page titles
                  "Data table",
                  "Level Changes",
                  "Percent Changes",
-                 "Biplots",
-                 "Time series plots",
-                 "Heatmaps"
-                 )
+                 "Heatmaps",
+                 "Biplots"
+                 ),
+                 industries)
 ```
 
 # `r page_titles[1]` {data-navmenu="Table of Contents"}
@@ -226,6 +229,8 @@ level_change_plot(Shared_ur)
 
 ## Inputs {.sidebar}
 
+-  Industry selection is on previous page (to ensure correspondence.)
+
 ### `r page_titles[4]`
 
 ## Row {data-height="500"}
@@ -268,114 +273,8 @@ percent_change_plot(Shared_un)
 percent_change_plot(Shared_ur)
 ```
 
+
 # `r page_titles[5]` {data-navmenu="Table of Contents"}
-
-## Column {.tabset}
-
-### Employed
-
-```{r}
-plt <- for_pca%>%
-  filter(name=="Employed")%>%
-  pull(biplot)
-plt[[1]]
-```
-
-### Unemployed
-
-```{r}
-plt <- for_pca%>%
-  filter(name=="Unemployed")%>%
-  pull(biplot)
-plt[[1]]
-```
-
-### Full time
-
-```{r}
-plt <- for_pca%>%
-  filter(name=="Full-Time")%>%
-  pull(biplot)
-plt[[1]]
-```
-
-### Part time
-
-```{r}
-plt <- for_pca%>%
-  filter(name=="Part-Time")%>%
-  pull(biplot)
-plt[[1]]
-```
-
-### Labour Force
-
-```{r}
-plt <- for_pca%>%
-  filter(name=="Labour Force")%>%
-  pull(biplot)
-plt[[1]]
-```
-
-### Unemployment rate
-
-```{r}
-plt <- for_pca%>%
-  filter(name=="Unemployment Rate")%>%
-  pull(biplot)
-plt[[1]]
-```
-
-# `r page_titles[6]` {data-navmenu="Table of Contents"}
-
-## Inputs {.sidebar}
-
-```{r}
-  filter_select(
-    id = "high_ts",
-    label = "Choose an industry",
-    sharedData = shared_ts,
-    group = ~ high,
-    multiple = FALSE
-  )
-
-filter_select(
-    id = "char_ts",
-    label = "Choose a characteristic",
-    sharedData = shared_ts,
-    group = ~ name,
-    multiple = FALSE
-  )
-
-```
-
-```{js, echo=FALSE}
-function filter_default(){
-  document.getElementById("high_ts").getElementsByClassName("selectized")[0].selectize.setValue("Construction", false)
-  document.getElementById("char_ts").getElementsByClassName("selectized")[0].selectize.setValue("Employed", false)
-}
-$(document).ready(filter_default);
-```
-
-## Column
-
-### `r page_titles[6]`
-
-```{r}
-plot_ly(shared_ts,
-        x=~date,
-        y=~value,
-        color=~agg_level,
-        type= "scatter",
-        mode="line",
-        text=~agg_level,
-        hoverinfo = 'text')%>%
- # config(displayModeBar = FALSE)%>%
-  layout(xaxis = list(title = ''), yaxis = list(title = ''))
-
-```
-
-# `r page_titles[7]` {data-navmenu="Table of Contents"}
 
 ## Column {.tabset}
 
@@ -414,3 +313,194 @@ my_heatmap("Labour Force")
 ```{r}
 my_heatmap("Unemployment Rate")
 ```
+
+# `r page_titles[6]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar data-width=600}
+
+### TL;DR
+
+- Education is the most seasonal industry due to 10 month contracts.
+- Accommodation and Food is the most "spiky" due to COVID.
+- Professional Services and Public Administration are the most trending industries.
+
+### Background:
+
+- Principal Component Analysis (PCA) is a way to get the most informative "view" of high dimension data.
+- Here we use 9 measures of time series for the 16 major industries.
+- The goal is to characterize the industries in terms of these measures.
+- It is impossible to visualize in 9 dimensions: PCA rotates the data cloud to get the most informative view.
+- An analogy might help:  Suppose that you need to identify a 3d object from a 2d representation of that object (e.g. a photo of the object).  To make the example stark consider an 8.5 by 11 sheet of paper.
+- PCA rotates the object in such a way that the photo captures as much of (the variability of) the object as possible.
+- PCA would rotate the piece of paper so the x axis is the hypotenuse between non adjacent corners, the y axis is perpendicular to the x axis and the z axis (the thickness of the paper) is hidden from view.
+- This can be contrasted with the least informative view of the paper: the side view, which in a picture would appear to be a (one dimensional) line of length 8.5. 
+
+### Measures:
+
+- Some of the measures have evocative names, others less so.
+- Spectral Entropy: a measure of predictability, with a range 0,1. e.g. white noise has a spectral entropy of 1, sin(x) has a spectral entropy of 0.
+- Hurst Coefficient: a measure of persistence or "mild vs. wild". e.g. white noise has a Hurst Coefficient of .5, a mean reverting series has a coefficient <.5, and persistent series has a coefficient >.5.
+
+## Column {.tabset}
+
+### Employed
+
+```{r}
+get_biplot("Employed")
+```
+
+### Unemployed
+
+```{r}
+get_biplot("Unemployed")
+```
+
+### Full time
+
+```{r}
+get_biplot("Full-Time")
+```
+
+### Part time
+
+```{r}
+get_biplot("Part-Time")
+```
+
+### Labour Force
+
+```{r}
+get_biplot("Labour Force")
+```
+
+### Unemployment rate
+
+```{r}
+get_biplot("Unemployment Rate")
+```
+
+
+# `r page_titles[7]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[7])
+```
+
+# `r page_titles[8]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[8])
+```
+
+
+# `r page_titles[9]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[9])
+```
+
+# `r page_titles[10]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[10])
+```
+
+# `r page_titles[11]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[11])
+```
+
+# `r page_titles[12]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[12])
+```
+
+
+# `r page_titles[13]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[13])
+```
+
+# `r page_titles[14]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[14])
+```
+
+
+# `r page_titles[15]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[15])
+```
+
+# `r page_titles[16]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[16])
+```
+
+
+# `r page_titles[17]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[17])
+```
+
+# `r page_titles[18]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[18])
+```
+
+
+# `r page_titles[19]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[19])
+```
+
+# `r page_titles[20]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[20])
+```
+
+
+# `r page_titles[21]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[21])
+```
+
+# `r page_titles[22]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[22])
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

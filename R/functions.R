@@ -340,13 +340,22 @@ mybiplot <- function (pcobj, choices = 1:2, scale = 1, pc.biplot = TRUE,
 
 biplot_wrapper <- function(pcs){
   rownames(pcs$x) <- str_replace_all(word(rownames(pcs$x), 1),",","")
-  plt <- mybiplot(pcs, labels=rownames(pcs$x), labels.size=3, varname.size=3)+
+  plt <- mybiplot(pcs, labels=rownames(pcs$x), labels.size=1.5, varname.size=1.5)+
     theme_minimal()+
     theme(plot.margin = unit(c(-.5, -2, 0, -2), "cm"))+
     scale_x_continuous(expand = expansion(mult = 0.15))+
     scale_y_continuous(expand = expansion(mult = 0.15))
 
 }
+get_biplot <- function(thing){
+  plt <- for_pca%>%
+    filter(name==thing)%>%
+    pull(biplot)
+  plt[[1]]
+}
+
+
+
 
 level_change_plot <- function(shared_df){
   plot_ly(shared_df,
@@ -392,7 +401,57 @@ my_heatmap <- function(var){
             column_text_angle = 90, main = var)
 }
 
+area_plot <- function(thing, industry){
+  for_ts_plots%>%
+    filter(name==thing,
+           high==industry)%>%
+    mutate(high=str_replace_all(high, "Utilities","Utilities_high"))%>% #utilities has no sub-industries: prevents filtering out below.
+    filter(agg_level!=high)%>%
+    mutate(agg_level=word(agg_level, 1))%>%
+    ggplot(aes(date,value, fill=agg_level))+
+    geom_area()+
+    scale_y_continuous(labels=scales::comma)+
+    theme_minimal()+
+    labs(x="",
+         y="",
+         title=thing,
+         fill="")+
+    theme(legend.position="bottom")+
+    theme(text = element_text(size = 6))
+}
 
+line_plot <- function(thing, industry){
+  for_ts_plots%>%
+    mutate(high=str_replace_all(high, "Utilities","Utilities_high"))%>%#utilities has no sub-industries: prevents filtering out below.
+    filter(value < .5, #don't use unemployment rates greater than 50%
+           name==thing,
+           high==industry)%>%
+    mutate(high=str_replace_all(high, "Utilities","Utilities_high"))%>%#utilities has no sub-industries: prevents filtering out below.
+    filter(agg_level!=high)%>%
+    ggplot(aes(date,value, colour=agg_level))+
+    stat_smooth(alpha=.75, se=FALSE, lwd=.5, show.legend = FALSE)+
+    geom_jitter(size=.5, alpha=.1, show.legend = FALSE)+
+    scale_y_continuous(trans="log", labels= scales::percent_format(accuracy = 1), oob=squish)+
+    theme_minimal()+
+    labs(x="",
+         y="",
+         title=thing,
+         colour="")+
+    theme(text = element_text(size = 6))
+}
+
+make_patchwork <- function(page){
+  employed <- area_plot("Employed", page)
+  unemployed <- area_plot("Unemployed", page)
+  full_time <- area_plot("Full-Time", page)
+  part_time <- area_plot("Part-Time", page)
+#  labour_force <- area_plot("Labour Force", page)
+  unemployment_rate <- line_plot("Unemployment Rate", page)
+  combined <- ((employed+unemployed)/(full_time+part_time) | unemployment_rate) & theme(legend.position = "bottom")
+  combined +
+    plot_layout(guides = "collect")+
+    plot_annotation(title = page, theme = theme(plot.title = element_text(size = 10)))
+}
 
 
 
