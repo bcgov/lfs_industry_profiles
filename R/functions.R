@@ -35,8 +35,8 @@ fill_wrapper <- function(tbbl) {
 }
 # function to read in the employment data by naics
 read_naics <- function(pttrn, var) {
-  file_names <- list.files(here::here("data"), pattern = pttrn)
-  vroom::vroom(here::here("data", file_names)) %>%
+  file_names <- list.files(here::here("data","current"), pattern = pttrn)
+  vroom::vroom(here::here("data","current", file_names)) %>%
     janitor::clean_names() %>%
     rename(
       name = {{ var }},

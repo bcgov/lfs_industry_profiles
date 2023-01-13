@@ -19,7 +19,7 @@ library(heatmaply)
 library(patchwork)
 source(here::here("R","functions.R"))
 
-smoothed_with_mapping <- read_rds(here::here("out","smoothed_with_mapping.rds"))
+smoothed_with_mapping <- read_rds(here::here("temp","smoothed_with_mapping.rds"))
 
 industries <- unique(smoothed_with_mapping$high)
 
@@ -38,7 +38,7 @@ for_heatmaps <- smoothed_with_mapping%>%
   ungroup()%>%
   select(agg_level, name, data)
 
-for_tables <- read_rds(here::here("out","for_tables.rds"))%>%
+for_tables <- read_rds(here::here("temp","for_tables.rds"))%>%
   tidyr::unnest(data)%>%
   ungroup()%>%
   mutate(Characteristic = if_else(Characteristic=="", NA_character_, Characteristic))%>%
@@ -46,7 +46,7 @@ for_tables <- read_rds(here::here("out","for_tables.rds"))%>%
   mutate(Industry= str_replace_all(Industry, " ", "&nbsp"))
 Shared_table <- SharedData$new(for_tables)
 
-for_plots <- read_rds(here::here("out","for_plots.rds"))%>%
+for_plots <- read_rds(here::here("temp","for_plots.rds"))%>%
   dplyr::rename(Characteristic=name)%>%
   tidyr::unnest(data)%>%
   ungroup()
@@ -58,7 +58,7 @@ Shared_pt <- SharedData$new(for_plots%>%filter(Characteristic=="Part-Time"), gro
 Shared_un <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployed"), group = "industry")
 Shared_ur <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployment Rate"), group = "industry")
 
-for_pca<- read_rds(here::here("out","for_pca.rds"))%>%
+for_pca<- read_rds(here::here("temp","for_pca.rds"))%>%
   mutate(biplot=map(pcs, biplot_wrapper))
 
 page_titles <- c(c("Title Page",#replace with your page titles
@@ -332,7 +332,7 @@ my_heatmap("Unemployment Rate")
 - It is impossible to visualize in 9 dimensions: PCA rotates the data cloud to get the most informative view.
 - An analogy might help:  Suppose that you need to identify a 3d object from a 2d representation of that object (e.g. a photo of the object).  To make the example stark consider an 8.5 by 11 sheet of paper.
 - PCA rotates the object in such a way that the photo captures as much of (the variability of) the object as possible.
-- PCA would rotate the piece of paper so the x axis is the hypotenuse between non adjacent corners, the y axis is perpendicular to the x axis and the z axis (the thickness of the paper) is hidden from view.
+- PCA would rotate the piece of paper so the x axis is the hypotenuse between non-adjacent corners, the y axis is perpendicular to the x axis and the z axis (the thickness of the paper) is hidden from view.
 - This can be contrasted with the least informative view of the paper: the side view, which in a picture would appear to be a (one dimensional) line of length 8.5. 
 
 ### Measures:

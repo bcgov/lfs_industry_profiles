@@ -13,10 +13,9 @@
 #' TO DO before sourcing this file:
 #'
 #' Get an RTRA account. (application form in directory `SAS`)
-#' delete last month's RTRA* files from directory `data`.
 #' upload the 2 .SAS files in directory `SAS` to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan).
 #' grab a coffee...
-#' download the 2 resulting csv files (From StatCan) and place in directory "data".
+#' download the 2 resulting csv files (From StatCan) and place in directory "data/current".
 
 #' Note that Jan 2026 the SAS files will need to be updated.
 tictoc::tic()
@@ -28,7 +27,7 @@ library(XLConnect)
 library(scales)
 library(fpp3)
 # constants---------------
-ma_months <- 3 #how many months to use for smoothing the data
+#ma_months <- 3 #how many months to use for smoothing the data
 accuracy_large <- 100 #levels rounded to nearest hundred
 accuracy_small <- .1 #percentages rounded to nearest tenth
 # Functions--------------------
@@ -60,7 +59,7 @@ agg <- raw_mapping %>%
   fill(medium, .direction = "down") %>%
   select(industry, high, medium, low)
 
-write_csv(agg, here::here("out","layout.csv"))
+#write_csv(agg, here::here("temp","layout.csv"))
 
 
 # get the naics for the lowest level of aggregation---------------
@@ -109,7 +108,7 @@ mapping <- high%>%
   full_join(low, by= "naics")%>%
   select(naics, everything())
 
-write_csv(mapping, here::here("out","mapping.csv"))
+#write_csv(mapping, here::here("temp","mapping.csv"))
 
 # read in the data and join with mapping file to get aggregation info -------------------
 ftpt <- read_naics("ftptemp4digNAICS", ftpt)%>%
@@ -155,7 +154,7 @@ smoothed_with_mapping <- full_join(smoothed_data, agg, by=c("agg_level"="industr
   mutate(name=str_to_title(str_replace_all(name, "_", " ")),
          data=map(data, pivot_wider, names_from="date", values_from="value"))
 
-write_rds(smoothed_with_mapping, here::here("out","smoothed_with_mapping.rds"))
+write_rds(smoothed_with_mapping, here::here("temp","smoothed_with_mapping.rds"))
 
   keep_list <- c("agg_level",
                  "trend_strength",
@@ -185,25 +184,7 @@ write_rds(smoothed_with_mapping, here::here("out","smoothed_with_mapping.rds"))
            pcs=map(features, prcomp, scale=TRUE)
     )
 
-  write_rds(for_pca, here::here("out","for_pca.rds"))
-
-#if we are not doing forecasting, dont need smoothed_with_mapping
-# data_for_forecasts <- smoothed_with_mapping%>%
-#   filter(high==medium)%>%
-#   ungroup()%>%
-#   select(agg_level, name, data)%>%
-#   unnest(data)%>%
-#   pivot_longer(cols=-c(agg_level, name), names_to = "date", values_to = "value")%>%
-#   mutate(date=yearmonth(date))%>%
-#   as_tsibble(key=c(agg_level, name), index = date)
-#
-# write_rds(data_for_forecasts, here::here("out","data_for_forecasts.rds"))
-#
-# forecasts <- data_for_forecasts%>%
-#   model(ets = ETS(log(value)))%>%
-#   forecast(h = 12)
-#
-# write_rds(forecasts, here::here("out","forecasts.rds"))
+  write_rds(for_pca, here::here("temp","for_pca.rds"))
 
 no_format <- smoothed_data %>%
   mutate(current = map(data, get_smoothed, 0), # get current value of smoothed data
@@ -242,7 +223,7 @@ full_join(no_format, agg, by=c("agg_level"="industry"))%>%
   group_by(agg_level, high, medium, low, name)%>%
   nest()%>%
   mutate(name=str_to_title(str_replace_all(name, "_", " ")))%>%
-write_rds(here::here("out","for_plots.rds"))
+write_rds(here::here("temp","for_plots.rds"))
 
 # formatting the output for excel
 with_formatting <- no_format%>%
@@ -287,7 +268,7 @@ with_formatting <- no_format%>%
   ) %>%
   filter(!is.na(high))
 
-write_rds(with_formatting, here::here("out","for_tables.rds"))
+write_rds(with_formatting, here::here("temp","for_tables.rds"))
 
 # write to excel-----------------
 wb <- loadWorkbook(here::here("data", "template.xlsx")) # get the desired sheet header
@@ -300,6 +281,6 @@ writeWorksheet(wb, mapping, sheet="Mapping for machines")
 with_formatting%>%
   mutate(walk2(data, high, write_sheet)) # replicates the template sheet and writes data to each sheet
 removeSheet(wb, "layout") # get rid of the template
-saveWorkbook(wb, here::here("out", "industry_snapshots.xlsx"))#write to file
+saveWorkbook(wb, here::here("out", "current", "industry_snapshots.xlsx"))#write to file
 tictoc::toc()
 
