@@ -16,6 +16,7 @@
 #' upload the 2 .SAS files in directory `SAS` to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan).
 #' grab a coffee...
 #' download the 2 resulting csv files (From StatCan) and place in directory "data/current".
+#' then source this file.
 
 #' Note that Jan 2026 the SAS files will need to be updated.
 #'
@@ -33,18 +34,18 @@ if (!dir.exists(file.path("out","old"))) {dir.create(file.path("out","old"))}
 if (!dir.exists("temp")) {dir.create("temp")}
 
 #are the required files where they are supposed to be?----------------
-assert_that(length(list.files(here("data","current"), pattern="ftptemp4digNAICS"))==2,
+assert_that(length(list.files(here::here("data","current"), pattern="ftptemp4digNAICS"))==2,
             msg="2 files with the pattern ftptemp4digNAICS must be in folder data/current")
-assert_that(length(list.files(here("data","current"), pattern="lfsstat4digNAICS"))==2,
+assert_that(length(list.files(here::here("data","current"), pattern="lfsstat4digNAICS"))==2,
             msg="2 files with the pattern lfsstat4digNAICS must be in folder data/current")
-assert_that(length(list.files(here("data"), pattern="mapping.xlsx"))==1,
+assert_that(length(list.files(here::here("data"), pattern="mapping.xlsx"))==1,
             msg="The file mapping.xlsx must be in folder data")
-assert_that(length(list.files(here("data"), pattern="template"))==1,
+assert_that(length(list.files(here::here("data"), pattern="template"))==1,
             msg="The file template.xlsx must be in folder data")
 
 #archive old output
-filesstrings::file.move(here("out","current", list.files(here("out", "current"))),
-                        here("out", "old"))
+filesstrings::file.move(here("out","current", list.files(here::here("out", "current"))),
+                        here::here("out", "old"))
 #create new output
 source("01_process_data.R")
 rmarkdown::render("02_dashboard.Rmd",
