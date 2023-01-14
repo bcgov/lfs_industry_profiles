@@ -1,0 +1,506 @@
+---
+title: "`r params$doc_title`"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    css: style.css
+params:
+  doc_title: "LFS industry profiles"
+---
+
+```{r}
+library(flexdashboard)
+library(knitr)
+library(tidyverse)
+library(crosstalk)
+library(DT)
+library(plotly)
+library(heatmaply)
+library(patchwork)
+source(here::here("R","functions.R"))
+
+smoothed_with_mapping <- read_rds(here::here("temp","smoothed_with_mapping.rds"))
+
+industries <- unique(smoothed_with_mapping$high)
+
+for_ts_plots <- smoothed_with_mapping%>%
+  ungroup()%>%
+  select(agg_level, name, high, low, data)%>%
+  unnest(data)%>%
+  pivot_longer(cols=-c(agg_level, name, high, low), names_to = "date", values_to="value")%>%
+  mutate(date=lubridate::ymd(date))%>%
+  ungroup()%>%
+  filter(is.na(low))
+shared_ts <- SharedData$new(for_ts_plots)
+
+for_heatmaps <- smoothed_with_mapping%>%
+  filter(agg_level==high)%>%
+  ungroup()%>%
+  select(agg_level, name, data)
+
+for_tables <- read_rds(here::here("temp","for_tables.rds"))%>%
+  tidyr::unnest(data)%>%
+  ungroup()%>%
+  mutate(Characteristic = if_else(Characteristic=="", NA_character_, Characteristic))%>%
+  fill(Characteristic, .direction = "down")%>%
+  mutate(Industry= str_replace_all(Industry, " ", "&nbsp"))
+Shared_table <- SharedData$new(for_tables)
+
+for_plots <- read_rds(here::here("temp","for_plots.rds"))%>%
+  dplyr::rename(Characteristic=name)%>%
+  tidyr::unnest(data)%>%
+  ungroup()
+
+Shared_em <- SharedData$new(for_plots%>%filter(Characteristic=="Employed"), group = "industry")
+Shared_ft <- SharedData$new(for_plots%>%filter(Characteristic=="Full-Time"), group = "industry")
+Shared_lf <- SharedData$new(for_plots%>%filter(Characteristic=="Labour Force"), group = "industry")
+Shared_pt <- SharedData$new(for_plots%>%filter(Characteristic=="Part-Time"), group = "industry")
+Shared_un <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployed"), group = "industry")
+Shared_ur <- SharedData$new(for_plots%>%filter(Characteristic=="Unemployment Rate"), group = "industry")
+
+for_pca<- read_rds(here::here("temp","for_pca.rds"))%>%
+  mutate(biplot=map(pcs, biplot_wrapper))
+
+page_titles <- c(c("Title Page",#replace with your page titles
+                 "Data table",
+                 "Level Changes",
+                 "Percent Changes",
+                 "Heatmaps",
+                 "Biplots"
+                 ),
+                 industries)
+```
+
+# `r page_titles[1]` {data-navmenu="Table of Contents"}
+
+## Row {data-height="600"}
+
+```{r, out.width = "150%"}
+knitr::include_graphics("aest.png")#the cover image
+```
+
+## Row {data-height="400"}
+
+### 
+
+<h1 class="center">
+
+`r params$doc_title`.
+
+</h1>
+
+<br><br>
+
+<h3>Monthly Labour Force Survey, aggregated to 3 levels:</h3>
+
+- 16 high level industries.
+
+- 76 medium level industries.
+
+- 56 low level industries.
+
+# `r page_titles[2]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+### Inputs:
+
+```{r}
+  filter_select(
+    id = "high",
+    label = "Choose an industry",
+    sharedData = Shared_table,
+    group = ~`high`,
+    multiple = FALSE
+  )
+
+filter_select(
+    id = "char",
+    label = "Choose a characteristic",
+    sharedData = Shared_table,
+    group = ~`Characteristic`,
+    multiple = FALSE
+  )
+
+```
+
+```{js, echo=FALSE}
+<!-- function filter_default(){ -->
+<!--   document.getElementById("high").getElementsByClassName("selectized")[0].selectize.setValue("Construction", false)  -->
+<!--   document.getElementById("char").getElementsByClassName("selectized")[0].selectize.setValue("Employed", false) -->
+<!-- } -->
+<!-- $(document).ready(filter_default); -->
+```
+
+## Column
+
+### `r page_titles[2]`
+
+```{r}
+sketch = htmltools::withTags(table(
+  class = 'display',
+  thead(
+    tr(
+      th(class="dt-center", colspan = 3, ''),
+      th(class="dt-center", colspan = 3, 'Monthly'),
+      th(class="dt-center", colspan = 2, 'Year to Date',
+       th(class="dt-center", colspan = 3, 'Level Change'),
+       th(class="dt-center", colspan = 3, 'Percent Change'),  
+       )
+    ),
+    tr(
+      lapply(names(for_tables), th)
+    )
+  )
+))
+
+Shared_table %>%
+  DT::datatable(
+    container = sketch,
+    rownames = FALSE,
+    escape = FALSE,
+    extensions = c('Buttons', 'FixedColumns'),
+    class = 'cell-border stripe',
+    options = list(
+    pageLength = 100,
+    dom = 'Bfrtip',
+    scrollX = TRUE,
+    columnDefs = list(list(visible=FALSE, targets = c(0,1))),
+    buttons = c('csv', 'excel')))
+```
+
+# `r page_titles[3]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+### `r page_titles[3]`
+
+```{r}
+  filter_select(
+    id = "high_plots",
+    label = "Choose an industry",
+    sharedData = Shared_em,
+    group = ~`high`,
+    multiple = FALSE
+  )
+```
+
+## Row {data-height="500"}
+
+### Employed
+
+```{r}
+level_change_plot(Shared_em)
+```
+
+### Full time
+
+```{r}
+level_change_plot(Shared_ft)
+```
+
+### Labour Force
+
+```{r}
+level_change_plot(Shared_lf)
+```
+
+## Row {data-height="500"}
+
+### Part time
+
+```{r}
+level_change_plot(Shared_pt)
+```
+
+### Unemployed
+
+```{r}
+level_change_plot(Shared_un)
+```
+
+### Unemployment rate
+
+```{r}
+level_change_plot(Shared_ur)
+```
+
+# `r page_titles[4]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar}
+
+-  Industry selection is on previous page (to ensure correspondence.)
+
+### `r page_titles[4]`
+
+## Row {data-height="500"}
+
+### Employed
+
+```{r}
+percent_change_plot(Shared_em)
+```
+
+### Full time
+
+```{r}
+percent_change_plot(Shared_ft)
+```
+
+### Labour Force
+
+```{r}
+percent_change_plot(Shared_lf)
+```
+
+## Row {data-height="500"}
+
+### Part time
+
+```{r}
+percent_change_plot(Shared_pt)
+```
+
+### Unemployed
+
+```{r}
+percent_change_plot(Shared_un)
+```
+
+### Unemployment rate
+
+```{r}
+percent_change_plot(Shared_ur)
+```
+
+
+# `r page_titles[5]` {data-navmenu="Table of Contents"}
+
+## Column {.tabset}
+
+### Employed
+
+```{r}
+my_heatmap("Employed")
+```
+
+### Unemployed
+
+```{r}
+my_heatmap("Unemployed")
+```
+
+### Full-Time
+
+```{r}
+my_heatmap("Full-Time")
+```
+
+### Part-Time
+
+```{r}
+my_heatmap("Part-Time")
+```
+
+### Labour Force
+
+```{r}
+my_heatmap("Labour Force")
+```
+
+### Unemployment Rate
+
+```{r}
+my_heatmap("Unemployment Rate")
+```
+
+# `r page_titles[6]` {data-navmenu="Table of Contents"}
+
+## Inputs {.sidebar data-width=600}
+
+### TL;DR
+
+- Education is the most seasonal industry due to 10 month contracts.
+- Accommodation and Food is the most "spiky" due to COVID.
+- Professional Services and Public Administration are the most trending industries.
+
+### Background:
+
+- Principal Component Analysis (PCA) is a way to get the most informative "view" of high dimension data.
+- Here we use 9 measures of time series for the 16 major industries.
+- The goal is to characterize the industries in terms of these measures.
+- It is impossible to visualize in 9 dimensions: PCA rotates the data cloud to get the most informative view.
+- An analogy might help:  Suppose that you need to identify a 3d object from a 2d representation of that object (e.g. a photo of the object).  To make the example stark consider an 8.5 by 11 sheet of paper.
+- PCA rotates the object in such a way that the photo captures as much of (the variability of) the object as possible.
+- PCA would rotate the piece of paper so the x axis is the hypotenuse between non-adjacent corners, the y axis is perpendicular to the x axis and the z axis (the thickness of the paper) is hidden from view.
+- This can be contrasted with the least informative view of the paper: the side view, which in a picture would appear to be a (one dimensional) line of length 8.5. 
+
+### Measures:
+
+- Some of the measures have evocative names, others less so.
+- Spectral Entropy: a measure of predictability, with a range 0,1. e.g. white noise has a spectral entropy of 1, sin(x) has a spectral entropy of 0.
+- Hurst Coefficient: a measure of persistence or "mild vs. wild". e.g. white noise has a Hurst Coefficient of .5, a mean reverting series has a coefficient <.5, and persistent series has a coefficient >.5.
+
+## Column {.tabset}
+
+### Employed
+
+```{r}
+get_biplot("Employed")
+```
+
+### Unemployed
+
+```{r}
+get_biplot("Unemployed")
+```
+
+### Full time
+
+```{r}
+get_biplot("Full-Time")
+```
+
+### Part time
+
+```{r}
+get_biplot("Part-Time")
+```
+
+### Labour Force
+
+```{r}
+get_biplot("Labour Force")
+```
+
+### Unemployment rate
+
+```{r}
+get_biplot("Unemployment Rate")
+```
+
+
+# `r page_titles[7]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[7])
+```
+
+# `r page_titles[8]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[8])
+```
+
+
+# `r page_titles[9]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[9])
+```
+
+# `r page_titles[10]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[10])
+```
+
+# `r page_titles[11]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[11])
+```
+
+# `r page_titles[12]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[12])
+```
+
+
+# `r page_titles[13]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[13])
+```
+
+# `r page_titles[14]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[14])
+```
+
+
+# `r page_titles[15]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[15])
+```
+
+# `r page_titles[16]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[16])
+```
+
+
+# `r page_titles[17]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[17])
+```
+
+# `r page_titles[18]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[18])
+```
+
+
+# `r page_titles[19]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[19])
+```
+
+# `r page_titles[20]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[20])
+```
+
+
+# `r page_titles[21]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[21])
+```
+
+# `r page_titles[22]` {data-navmenu="Table of Contents"}
+
+```{r}
+make_patchwork(page_titles[22])
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
