@@ -30,7 +30,7 @@ if (!dir.exists(file.path("data","old"))) {dir.create(file.path("data","old"))}
 if (!dir.exists("out")) {dir.create("out")}
 if (!dir.exists(file.path("out","current"))) {dir.create(file.path("out","current"))}
 if (!dir.exists(file.path("out","old"))) {dir.create(file.path("out","old"))}
-
+if (!dir.exists("temp")) {dir.create("temp")}
 
 #are the required files where they are supposed to be?----------------
 assert_that(length(list.files(here("data","current"), pattern="ftptemp4digNAICS"))==2,
