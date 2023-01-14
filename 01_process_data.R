@@ -281,6 +281,6 @@ writeWorksheet(wb, mapping, sheet="Mapping for machines")
 with_formatting%>%
   mutate(walk2(data, high, write_sheet)) # replicates the template sheet and writes data to each sheet
 removeSheet(wb, "layout") # get rid of the template
-saveWorkbook(wb, here::here("out", "current", "industry_snapshots.xlsx"))#write to file
+saveWorkbook(wb, here::here("out", "current", str_replace_all(paste0("LFS_industry_profiles",date(),".xlsx")," ","_")))
 tictoc::toc()
 
