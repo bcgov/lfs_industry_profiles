@@ -23,6 +23,15 @@
 
 library(assertthat)
 library(here)
+
+if (!dir.exists("data")) {dir.create("data")}
+if (!dir.exists(file.path("data","current"))) {dir.create(file.path("data","current"))}
+if (!dir.exists(file.path("data","old"))) {dir.create(file.path("data","old"))}
+if (!dir.exists("out")) {dir.create("out")}
+if (!dir.exists(file.path("out","current"))) {dir.create(file.path("out","current"))}
+if (!dir.exists(file.path("out","old"))) {dir.create(file.path("out","old"))}
+
+
 #are the required files where they are supposed to be?----------------
 assert_that(length(list.files(here("data","current"), pattern="ftptemp4digNAICS"))==2,
             msg="2 files with the pattern ftptemp4digNAICS must be in folder data/current")

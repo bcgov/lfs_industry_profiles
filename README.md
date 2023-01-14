@@ -10,13 +10,12 @@ lfs_industry_profiles
 * delete last month's RTRA* files from directory `data`.
 * upload the 2 .SAS files in directory `SAS` to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan).
 * grab a coffee...
-* download the 2 resulting csv files (From StatCan) and place in directory "data".
-* source file 01_source_me.R. to create excel file. 
-* run document file 02_run_document.Rmd for an optional dashboard.
+* download the 2 resulting csv files (From StatCan) and place in directory "data/current".
+* source file 00_source_me.R.
 
 #### Purpose
 
-This script creates a mapping file from naics to three levels of aggregation, based on the "Beyond 20/20" custom tab from BC Stats (modified to breakdown health further).  The 4 digit RTRA employment data is then merged with the mapping file, and then the RTRA data is aggregated to the three levels of aggregation.  The aggregated data is written to an excel file with a sheet for each of the high level aggregates.   
+This script creates a mapping file from naics to three levels of aggregation, based on the "Beyond 20/20" custom tab from BC Stats (modified to breakdown health further).  The 4 digit RTRA employment data is then merged with the mapping file, and then the RTRA data is aggregated to the three levels of aggregation.  The aggregated data is written to an excel file with a sheet for each of the high level aggregates. An html dashboard is also created.  Note that Jan 2026 the SAS files will need to be updated. Output found in directory out/current.
 
 ### Getting Help or Reporting an Issue
 
