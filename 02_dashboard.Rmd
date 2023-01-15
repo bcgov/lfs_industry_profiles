@@ -9,18 +9,11 @@ params:
 ---
 
 ```{r}
-library(flexdashboard)
-library(knitr)
-library(tidyverse)
-library(crosstalk)
-library(DT)
-library(plotly)
-library(heatmaply)
-library(patchwork)
+dash_required <- c("flexdashboard", "knitr", "tidyverse", "crosstalk", "DT", "plotly", "heatmaply", "patchwork")
 source(here::here("R","functions.R"))
+invisible(lapply(dash_required, load_package))
 
 smoothed_with_mapping <- read_rds(here::here("temp","smoothed_with_mapping.rds"))
-
 industries <- unique(smoothed_with_mapping$high)
 
 for_ts_plots <- smoothed_with_mapping%>%

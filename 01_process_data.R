@@ -19,13 +19,15 @@
 
 #' Note that Jan 2026 the SAS files will need to be updated.
 tictoc::tic()
-# libraries--------------
-library(tidyverse)
-library(lubridate)
-library(readxl)
-library(XLConnect)
-library(scales)
-library(fpp3)
+#functions---------------------
+source(here::here("R", "functions.R"))
+# detach packages (for some reason??? running script more than once caused problems (think it has to do with the order of library loading))--------------
+lapply(names(sessionInfo()$otherPkgs), detach_package)
+
+#attach packages----------------
+required_packages <- c("tidyverse", "lubridate", "readxl", "XLConnect", "scales", "fabletools", "feasts")
+lapply(required_packages, load_package)
+
 # constants---------------
 #ma_months <- 3 #how many months to use for smoothing the data
 accuracy_large <- 100 #levels rounded to nearest hundred
@@ -202,7 +204,7 @@ no_format <- smoothed_data %>%
   ) %>%
   select(agg_level, data) %>%
   unnest(data)%>%
-  rename(
+  dplyr::rename(
     current = value.x, # fix the names messed up by joins above
     previous_month = value.y,
     previous_year = value,

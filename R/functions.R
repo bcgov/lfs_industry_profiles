@@ -453,5 +453,18 @@ make_patchwork <- function(page){
     plot_annotation(title = page, theme = theme(plot.title = element_text(size = 10)))
 }
 
+load_package <- function(pkg){
+      require(pkg, character.only = TRUE)
+}
+detach_package <- function(pkg){
+  detach(
+    paste0('package:', pkg),
+    character.only = T,
+    unload = T,
+    force = T
+  )
+}
+
+
 
 
