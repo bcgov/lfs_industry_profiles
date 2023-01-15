@@ -6,6 +6,8 @@ output:
     css: style.css
 params:
   doc_title: "LFS industry profiles"
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r}

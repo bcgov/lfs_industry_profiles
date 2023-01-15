@@ -46,7 +46,7 @@ filesstrings::file.move(here::here("out","current", list.files(here::here("out",
 #create new output
 source("01_process_data.R")
 rmarkdown::render("02_dashboard.Rmd",
-                  output_file =  str_replace_all(paste0("LFS_industry_profiles_",date(),".html")," ","_"),
+                  output_file = paste0("LFS_industry_profiles_",lubridate::today(),".html"),
                   output_dir = here::here("out","current"))
 
 
