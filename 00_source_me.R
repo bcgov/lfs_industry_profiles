@@ -47,7 +47,7 @@ assertthat::assert_that(length(list.files(here::here("data"), pattern="template"
 
 #archive old output
 filesstrings::file.move(here::here("out","current", list.files(here::here("out", "current"))),
-                        here::here("out", "old"))
+                        here::here("out", "old"), overwrite = TRUE)
 #create new output
 source("01_process_data.R")
 rmarkdown::render("02_dashboard.Rmd",
