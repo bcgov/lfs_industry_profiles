@@ -10,14 +10,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 
-#' TO DO before sourcing this file:
-#'
-#' Get an RTRA account. (application form in directory `SAS`)
-#' upload the 2 .SAS files in directory `SAS` to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan).
-#' grab a coffee...
-#' download the 2 resulting csv files (From StatCan) and place in directory "data/current".
-
-#' Note that Jan 2026 the SAS files will need to be updated.
 tictoc::tic()
 #functions---------------------
 source(here::here("R", "functions.R"))
