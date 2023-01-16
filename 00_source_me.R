@@ -16,6 +16,7 @@
 #' upload the 2 .SAS files in directory `SAS` to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan).
 #' grab a coffee...
 #' download the 2 resulting csv files (From StatCan) and place in directory "data/current".
+#' Click the Git button and pull to make sure the script is the most recent version.
 #' then source this file.
 
 #' Note that Jan 2026 the SAS files will need to be updated.
