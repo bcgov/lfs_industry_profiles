@@ -23,6 +23,7 @@
 #'
 #' Output found in directory out/current.
 
+# check to make sure directory structure exists------------------------------
 if (!dir.exists("data")) {dir.create("data")}
 if (!dir.exists(file.path("data","current"))) {dir.create(file.path("data","current"))}
 if (!dir.exists(file.path("data","old"))) {dir.create(file.path("data","old"))}
