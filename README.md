@@ -13,15 +13,15 @@ lfs_industry_profiles
 * Click the `Git` button and `pull` to make sure the script is the most recent version.
 * source file 00_source_me.R.
 
-#### Purpose
-
-This script creates a mapping file from naics to three levels of aggregation, based on the "Beyond 20/20" custom tab from BC Stats (modified to breakdown health further).  The 4 digit RTRA employment data is then merged with the mapping file, and then the RTRA data is aggregated to the three levels of aggregation.  The aggregated data is written to an excel file with a sheet for each of the high level aggregates. An html dashboard is also created. Output found in directory out/current. 
-
 Note that Jan 2026:
 
 1. The .xlsx files starting with `dont_delete` will need to be deleted.
 2. December's .xlsx files will need to be copied from old inputs to current inputs and prepended with `dont_delete`.
 3. the SAS files will need to be updated regarding the dates.
+
+#### Purpose
+
+This script creates a mapping file from naics to three levels of aggregation, based on the "Beyond 20/20" custom tab from BC Stats (modified to breakdown health further).  The 4 digit RTRA employment data is then merged with the mapping file, and then the RTRA data is aggregated to the three levels of aggregation.  The aggregated data is written to an excel file with a sheet for each of the high level aggregates. An html dashboard is also created. Output found in directory out/current. 
 
 ### Getting Help or Reporting an Issue
 
