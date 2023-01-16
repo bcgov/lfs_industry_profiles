@@ -20,8 +20,8 @@
 #' then source this file.
 
 #' Note that Jan 2026 the SAS files will need to be updated.
-#' 1. The .xlsx files starting with `dont_delete` will need to be deleted.
-#' 2. December's .xlsx files will need to be copied from old inputs to current inputs and prepended with `dont_delete`.
+#' 1. The .csv files starting with `dont_delete` will need to be deleted.
+#' 2. December's .csv files will need to be copied from old inputs to current inputs and prepended with `dont_delete`.
 #' 3. the SAS files will need to be updated regarding the dates.
 
 #' Output found in directory out/current.
