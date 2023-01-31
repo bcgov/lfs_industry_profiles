@@ -17,8 +17,19 @@ source(here::here("R", "functions.R"))
 lapply(names(sessionInfo()$otherPkgs), detach_package)
 
 #attach packages----------------
-required_packages <- c("tidyverse", "lubridate", "readxl", "XLConnect", "scales", "fabletools", "feasts")
+required_packages <- c("tidyverse",
+                       "lubridate",
+                       "readxl",
+                       "XLConnect",
+                       "scales",
+                       "fabletools",
+                       "fracdiff",
+                       "urca",
+                       "feasts",
+                       "wrapR"
+                       )
 lapply(required_packages, load_package)
+#devtools::install_github("bcgov/wrapR")
 
 # constants---------------
 #ma_months <- 3 #how many months to use for smoothing the data
