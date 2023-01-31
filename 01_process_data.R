@@ -24,8 +24,7 @@ lapply(required_packages, load_package)
 #ma_months <- 3 #how many months to use for smoothing the data
 accuracy_large <- 100 #levels rounded to nearest hundred
 accuracy_small <- .1 #percentages rounded to nearest tenth
-# Functions--------------------
-source(here::here("R", "functions.R"))
+
 # Start by creating a mapping file from naics to various levels of aggregation----------------
 # input file mapping.xlsx uses leading spaces to indicate hierarchy....
 human_mapping <- read_excel(here::here("data", "mapping.xlsx"), trim_ws = FALSE)
