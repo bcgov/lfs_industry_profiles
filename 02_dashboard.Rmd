@@ -71,7 +71,7 @@ page_titles <- c(c("Title Page",#replace with your page titles
 ## Row {data-height="600"}
 
 ```{r, out.width = "150%"}
-knitr::include_graphics("aest.png")#the cover image
+knitr::include_graphics("psfs.png")#the cover image
 ```
 
 ## Row {data-height="400"}
