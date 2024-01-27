@@ -11,7 +11,15 @@ editor_options:
 ---
 
 ```{r}
-dash_required <- c("flexdashboard", "knitr", "tidyverse", "crosstalk", "DT", "plotly", "heatmaply", "patchwork")
+dash_required <- c("flexdashboard", 
+                   "knitr", 
+                   "tidyverse", 
+                   "crosstalk", 
+                   "DT", 
+                   "plotly", 
+                   "heatmaply", 
+                   "patchwork",
+                   "conflicted")
 source(here::here("R","functions.R"))
 invisible(lapply(dash_required, load_package))
 
