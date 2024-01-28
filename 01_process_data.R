@@ -31,6 +31,7 @@ required_packages <- c("tidyverse",
                        )
 names(required_packages) <- required_packages
 lapply(required_packages, load_package)
+conflicts_prefer(dplyr::filter)
 #devtools::install_github("bcgov/wrapR")
 
 # constants---------------

@@ -19,9 +19,13 @@ dash_required <- c("flexdashboard",
                    "plotly", 
                    "heatmaply", 
                    "patchwork",
+                   "tidyverse",
                    "conflicted")
 source(here::here("R","functions.R"))
 invisible(lapply(dash_required, load_package))
+conflicts_prefer(dplyr::filter)
+conflicts_prefer(dplyr::mutate)
+conflicts_prefer(plotly::layout)
 
 smoothed_with_mapping <- read_rds(here::here("temp","smoothed_with_mapping.rds"))
 industries <- unique(smoothed_with_mapping$high)
