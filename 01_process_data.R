@@ -26,7 +26,7 @@ required_packages <- c("tidyverse",
                        "fracdiff",
                        "urca",
                        "feasts",
-                       "wrapR",
+                      # "wrapR",
                        "conflicted"
                        )
 names(required_packages) <- required_packages
