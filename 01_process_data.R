@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 tictoc::tic()
+print("Hi Sazid")
 #functions---------------------
 source(here::here("R", "functions.R"))
 # detach packages (for some reason??? running script more than once caused problems (think it has to do with the order of library loading))--------------
@@ -26,7 +27,7 @@ required_packages <- c("tidyverse",
                        "fracdiff",
                        "urca",
                        "feasts",
-                      # "wrapR",
+                       "wrapR",
                        "conflicted"
                        )
 names(required_packages) <- required_packages
