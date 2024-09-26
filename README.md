@@ -6,6 +6,8 @@ lfs_industry_profiles
 
 ### Usage
 
+* THIS PROJECT SHOULD LIVE ON YOUR HARD DRIVE, NOT THE LAN.
+
 * Get an RTRA account. (application form in directory `SAS`) 
 * upload the 2 .SAS files in directory `SAS` to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan).
 * grab a coffee...
