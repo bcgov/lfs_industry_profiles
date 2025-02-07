@@ -33,9 +33,9 @@ if (!dir.exists(file.path("out","old"))) {dir.create(file.path("out","old"))}
 if (!dir.exists("temp")) {dir.create("temp")}
 
 #are the required files where they are supposed to be?----------------
-assertthat::assert_that(length(list.files(here::here("data","current"), pattern="ftptemp4digNAICS"))==2,
+assertthat::assert_that(length(list.files(here::here("data","current"), pattern="ftptemp"))==2,
             msg="2 files with the pattern ftptemp4digNAICS must be in folder data/current")
-assertthat::assert_that(length(list.files(here::here("data","current"), pattern="lfsstat4digNAICS"))==2,
+assertthat::assert_that(length(list.files(here::here("data","current"), pattern="lfsstat"))==2,
             msg="2 files with the pattern lfsstat4digNAICS must be in folder data/current")
 assertthat::assert_that(length(list.files(here::here("data"), pattern="industry_mapping"))==1,
             msg="The file mapping.xlsx must be in folder data")
@@ -51,18 +51,17 @@ rmarkdown::render("02_dashboard.Rmd",
                   output_file = paste0("LFS_industry_profiles_",lubridate::today(),".html"),
                   output_dir = here::here("out","current"))
 
-
 #replace random prefix on input files with today's date, then archive--------
 
-tibble(wrong_names=list.files(here::here("data", "current"), pattern = "RTRA"))|>
-  mutate(correct_names=sub("^[^_]+", today(), wrong_names))|>
-  mutate(correction=map2(wrong_names, correct_names, file.rename.wrapper))
+tibble(wrong_names = list.files(here::here("data", "current"), pattern = "RTRA"))|>
+  mutate(correct_names = sub("^[^_]+", today(), wrong_names))|>
+  mutate(correction = map2(wrong_names, correct_names, file.rename.wrapper))
 
 filesstrings::file.move(here::here("data",
                                    "current",
                                    list.files(here::here("data", "current"),
                                               pattern = as.character(today()))),
-                        here::here("data", "old"), overwrite = TRUE)
+                        here::here("data", "old"))
 
 
 
