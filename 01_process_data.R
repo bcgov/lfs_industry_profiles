@@ -26,102 +26,53 @@ required_packages <- c("tidyverse",
                        "fracdiff",
                        "urca",
                        "feasts",
-                       "wrapR",
-                       "conflicted"
+                       "conflicted",
+                       "here"
                        )
 names(required_packages) <- required_packages
 lapply(required_packages, load_package)
 conflicts_prefer(dplyr::filter)
-#devtools::install_github("bcgov/wrapR")
 
 # constants---------------
 #ma_months <- 3 #how many months to use for smoothing the data
 accuracy_large <- 100 #levels rounded to nearest hundred
 accuracy_small <- .1 #percentages rounded to nearest tenth
 
-# Start by creating a mapping file from naics to various levels of aggregation----------------
-# input file mapping.xlsx uses leading spaces to indicate hierarchy....
-human_mapping <- read_excel(here::here("data", "mapping.xlsx"), trim_ws = FALSE)
+mapping <- read_excel(here("data","industry_mapping_2025.xlsx"))|>
+  select(naics_5, contains("industry_profile"))
 
-raw_mapping <- human_mapping%>%
-  janitor::clean_names() %>%
-  mutate(
-    spaces = str_count(industry, "\\G "),
-    agg = case_when(
-      spaces == 0 ~ "high",
-      spaces %in% 2:4 ~ "medium",
-      spaces %in% 5:6 ~ "low"
-    ),
-    industry = trimws(industry)
-  )
-#relationship between each industry and the three levels of aggregation (used for excel layout)------------
-agg <- raw_mapping %>%
-  select(-naics) %>%
-  mutate(
-    high = if_else(agg == "high", industry, NA_character_),
-    medium = if_else(agg %in% c("high", "medium"), industry, NA_character_),
-    low = if_else(agg == "low", industry, NA_character_)
-  ) %>%
-  fill(high, .direction = "down") %>%
-  fill(medium, .direction = "down") %>%
-  select(industry, high, medium, low)
+agg <- mapping|>
+  select(-naics_5)|>
+  pivot_longer(cols=everything(), names_to = "agg_level", values_to = "industry")|>
+  mutate(agg_level=word(agg_level, -1, sep = "_"))|>
+  na.omit()|>#could be a mistake
+  distinct()#could be a mistake
 
-#write_csv(agg, here::here("temp","layout.csv"))
+formatting <- agg|>
+  pivot_wider(names_from = agg_level, values_from = agg_level)|>
+  mutate(industry=factor(industry, levels = industry, ordered = TRUE))
 
+high_parents <- mapping|>
+  select(parent=industry_profile_high, industry=industry_profile_high)|>
+  distinct()
 
-# get the naics for the lowest level of aggregation---------------
-low <- raw_mapping %>%
-  filter(agg == "low") %>%
-  select(low = industry,
-         naics) %>%
-  group_by(low) %>%
-  nest()%>%
-  mutate(
-    data = map(data, separate_naics),
-    data = map(data, fill_wrapper)
-  ) %>%
-  unnest(data)%>%
-  unnest(naics)
+medium_parents <- mapping|>
+  select(parent=industry_profile_high, industry=industry_profile_medium)|>
+  distinct()
 
-# get the naics for the medium level of aggregation---------------
-medium <- raw_mapping %>%
-  filter(agg == "medium") %>%
-  select(medium = industry, naics) %>%
-  group_by(medium) %>%
-  nest() %>%
-  mutate(
-    data = map(data, separate_naics),
-    data = map(data, fill_wrapper)
-  ) %>%
-  unnest(data) %>%
-  unnest(naics)
+low_parents <- mapping|>
+  select(parent=industry_profile_high, industry=industry_profile_low)|>
+  distinct()
 
-# get the naics for the high level of aggregation---------------
-high <- raw_mapping %>%
-  filter(agg == "high") %>%
-  select(high = industry,
-         naics) %>%
-  group_by(high) %>%
-  nest() %>%
-  mutate(
-    data = map(data, separate_naics),
-    data = map(data, fill_wrapper)
-  ) %>%
-  unnest(data) %>%
-  unnest(naics)
-# join by naics to get the mapping file from naics to the 3 levels of aggregation.
-mapping <- high%>%
-  full_join(medium, by="naics")%>%
-  full_join(low, by= "naics")%>%
-  select(naics, everything())
-
-#write_csv(mapping, here::here("temp","mapping.csv"))
+parents <- bind_rows(high_parents, medium_parents, low_parents)|>
+  distinct()
 
 # read in the data and join with mapping file to get aggregation info -------------------
 ftpt <- read_naics("ftptemp4digNAICS", ftpt)%>%
-  inner_join(mapping, by = "naics")
+  inner_join(mapping, by = "naics_5")
+
 status <- read_naics("lfsstat4digNAICS", lf_stat)%>%
-  inner_join(mapping, by = "naics")
+  inner_join(mapping, by = "naics_5")
 all_data <- bind_rows(ftpt, status)
 
 #data is zero padded to the end of the current year... figure out the last month from data.
@@ -142,28 +93,37 @@ current <- format(max(truncated$date), "%b-%y")
 previous_month <- format(max(truncated$date) - months(1), "%b-%y")
 previous_year <- format(max(truncated$date) - years(1), "%b-%y")
 # aggregate the data to the three levels-------------
-high_agg <- agg_level(truncated, high)
-medium_agg <- agg_level(truncated, medium)
-low_agg <- agg_level(truncated, low)
+high_agg <- agg_level(truncated, industry_profile_high)
+medium_agg <- agg_level(truncated, industry_profile_medium)
+low_agg <- agg_level(truncated, industry_profile_low)
 
-# bind the 3 levels of aggregation together then...
-smoothed_data <- bind_rows(high_agg, medium_agg, low_agg)%>%
+# bind the 3 levels of aggregation together
+all_data <- bind_rows(high_agg, medium_agg, low_agg)%>%
   na.omit() %>%
-  mutate(#data = map(data, stl_smooth), #thought this might be better than simple moving average...
-        #data = map(data, trail_ma, months = ma_months), # simple moving average smooth of data
-        data = map(data, add_vars)) #add in labour force and unemployment rate
+  mutate(data = map(data, add_vars)) #add in labour force and unemployment rate
 
-smoothed_with_mapping <- full_join(smoothed_data, agg, by=c("agg_level"="industry"))%>%
+high_and_medium <- bind_rows(high_agg, medium_agg)%>%
+  na.omit() %>%
+  mutate(data = map(data, add_vars)) #add in labour force and unemployment rate
+
+all_with_mapping <- full_join(all_data, agg)%>%
   mutate(data=map(data, na.omit))%>%
   unnest(data)%>%
-  group_by(agg_level, high, medium, low, name)%>%
+  group_by(agg_level, name)%>%
   nest()%>%
   mutate(name=str_to_title(str_replace_all(name, "_", " ")),
+         data=map(data, distinct),
          data=map(data, pivot_wider, names_from="date", values_from="value"))
 
-write_rds(smoothed_with_mapping, here::here("temp","smoothed_with_mapping.rds"))
+write_rds(all_with_mapping, here::here("temp","all_with_mapping.rds"))
 
-  keep_list <- c("agg_level",
+for_ts_plots <- high_and_medium|>
+  left_join(parents)|>
+  unnest(data)
+
+write_rds(for_ts_plots, here::here("temp","for_ts_plots.rds"))
+
+keep_list <- c("industry",
                  "trend_strength",
                  "seasonal_strength_year",
                  "spikiness",
@@ -174,30 +134,31 @@ write_rds(smoothed_with_mapping, here::here("temp","smoothed_with_mapping.rds"))
                  "coef_hurst"
   )
 
-  for_pca <- smoothed_with_mapping %>%
+  for_pca <- all_with_mapping %>%
     unnest(data)%>%
-    pivot_longer(cols=-c(agg_level, name,high,medium,low), names_to = "date", values_to = "value")%>%
-    filter(agg_level==high)%>%
+    pivot_longer(cols=-c(agg_level, name, industry), names_to = "date", values_to = "value")%>%
+    filter(agg_level=="high")%>%
+    ungroup()|>
+    select(-agg_level)|>
     ungroup()%>%
-    select(-high, -medium, -low)%>%
     mutate(date=tsibble::yearmonth(date))%>%
     group_by(name)%>%
     nest()%>%
-    mutate(data=map(data, tsibble::tsibble, key=agg_level, index=date),
+    mutate(data=map(data, tsibble::tsibble, key=industry, index=date),
            features=map(data, function(tsbbl) tsbbl %>% features(value, feature_set(pkgs = "feasts"))),
            features=map(features, select, all_of(keep_list)),
-           features=map(features, column_to_rownames, var="agg_level"),
+           features=map(features, column_to_rownames, var="industry"),
            features=map(features, fix_column_names),
            pcs=map(features, prcomp, scale=TRUE)
     )
 
   write_rds(for_pca, here::here("temp","for_pca.rds"))
 
-no_format <- smoothed_data %>%
-  mutate(current = map(data, get_smoothed, 0), # get current value of smoothed data
-        last_month = map(data, get_smoothed, 1),
-        last_year = map(data, get_smoothed, 12),
-        current_ytd_ave = map(data, ytd_ave, 0), # year to date average of smoothed data
+no_format <- all_data %>%
+  mutate(current = map(data, get_values, 0), # get current value
+        last_month = map(data, get_values, 1),
+        last_year = map(data, get_values, 12),
+        current_ytd_ave = map(data, ytd_ave, 0), # year to date average
         previous_ytd_ave = map(data, ytd_ave, 1)
   )%>%
   select(-data)%>%
@@ -207,7 +168,7 @@ no_format <- smoothed_data %>%
     data = map2(data, current_ytd_ave, full_join, by = "name"),
     data = map2(data, previous_ytd_ave, full_join, by = "name")
   ) %>%
-  select(agg_level, data) %>%
+  select(industry, data) %>%
   unnest(data)%>%
   dplyr::rename(
     current = value.x, # fix the names messed up by joins above
@@ -225,12 +186,13 @@ no_format <- smoothed_data %>%
     percent_change_ytd = level_change_ytd / previous_ytd_average)
 
 
-full_join(no_format, agg, by=c("agg_level"="industry"))%>%
+for_plots <- left_join(no_format, agg)%>%
   ungroup()%>%
-  group_by(agg_level, high, medium, low, name)%>%
+  group_by(industry, name)%>%
   nest()%>%
-  mutate(name=str_to_title(str_replace_all(name, "_", " ")))%>%
-write_rds(here::here("temp","for_plots.rds"))
+  mutate(name=str_to_title(str_replace_all(name, "_", " ")))
+
+write_rds(for_plots, here::here("temp","for_plots.rds"))
 
 # formatting the output for excel
 with_formatting <- no_format%>%
@@ -261,32 +223,25 @@ with_formatting <- no_format%>%
         previous_ytd_average = if_else(name == "unemployment_rate",
                                        percent(previous_ytd_average, accuracy = accuracy_small),
                                        comma(previous_ytd_average, accuracy = accuracy_large))
-      ) %>%
-  left_join(agg, by = c("agg_level" = "industry"))%>% #agg is the mapping from industry to the 3 levels of aggregation
-  mutate(medium = ifelse(agg_level == high, paste0("1", medium), medium)) %>%# allows high level industries to be at top of sorted medium industries.
-  group_by(high) %>%
-  nest() %>%
-  mutate(
-    data = map(data, arrange, name, medium), # arranges data by medium level of aggregation (except high level at top because of pasted 1)
-    data = map(data, unfill_var, name), # replaces fixed values with blanks. (excel formatting)
-    data = map(data, indent_industry), # indents industry to indicate hierarchy.
-    data = map(data, select, -medium, -low), # gets rid of aggregation levels
-    data = map(data, clean_up) # assigns the desired column names and puts in the correct order
-  ) %>%
-  filter(!is.na(high))
+      )|>
+  inner_join(formatting)|>
+  mutate(industry=factor(industry, levels=levels(formatting$industry), ordered=TRUE))|>
+  arrange(industry)|>
+  left_join(parents)|>
+  group_by(parent)|>
+  nest()|>
+  mutate(data=map(data, apply_formatting),
+         data=map(data, clean_up))
 
 write_rds(with_formatting, here::here("temp","for_tables.rds"))
 
 # write to excel-----------------
 wb <- loadWorkbook(here::here("data", "template.xlsx")) # get the desired sheet header
-createSheet(wb, name = "Mapping for humans")
-setColumnWidth(wb, sheet = "Mapping for humans", column = 1:2, width = c(24000,7000))
-writeWorksheet(wb, human_mapping, sheet="Mapping for humans")
-createSheet(wb, name = "Mapping for machines")
-setColumnWidth(wb, sheet = "Mapping for machines", column = 2:4, width = c(16000, 24000, 16000))
-writeWorksheet(wb, mapping, sheet="Mapping for machines")
+createSheet(wb, name = "Mapping")
+setColumnWidth(wb, sheet = "Mapping", column = 2:4, width = c(16000, 24000, 16000))
+writeWorksheet(wb, mapping, sheet="Mapping")
 with_formatting%>%
-  mutate(walk2(data, high, write_sheet)) # replicates the template sheet and writes data to each sheet
+  mutate(walk2(data, parent, write_sheet)) # replicates the template sheet and writes data to each sheet
 removeSheet(wb, "layout") # get rid of the template
 saveWorkbook(wb, here::here("out", "current", paste0("LFS_industry_profiles",lubridate::today(),".xlsx")))
 tictoc::toc()

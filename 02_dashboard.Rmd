@@ -19,7 +19,7 @@ dash_required <- c("flexdashboard",
                    "plotly", 
                    "heatmaply", 
                    "patchwork",
-                   "tidyverse",
+                   "fpp3",
                    "conflicted")
 source(here::here("R","functions.R"))
 invisible(lapply(dash_required, load_package))
@@ -27,21 +27,11 @@ conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::mutate)
 conflicts_prefer(plotly::layout)
 
-smoothed_with_mapping <- read_rds(here::here("temp","smoothed_with_mapping.rds"))
-industries <- unique(smoothed_with_mapping$high)
+all_with_mapping <- read_rds(here::here("temp","all_with_mapping.rds"))
+for_ts_plots <- read_rds(here::here("temp","for_ts_plots.rds"))
 
-for_ts_plots <- smoothed_with_mapping%>%
-  ungroup()%>%
-  select(agg_level, name, high, low, data)%>%
-  unnest(data)%>%
-  pivot_longer(cols=-c(agg_level, name, high, low), names_to = "date", values_to="value")%>%
-  mutate(date=lubridate::ymd(date))%>%
-  ungroup()%>%
-  filter(is.na(low))
-shared_ts <- SharedData$new(for_ts_plots)
-
-for_heatmaps <- smoothed_with_mapping%>%
-  filter(agg_level==high)%>%
+for_heatmaps <- all_with_mapping%>%
+  filter(agg_level=="high")%>%
   ungroup()%>%
   select(agg_level, name, data)
 
@@ -51,7 +41,11 @@ for_tables <- read_rds(here::here("temp","for_tables.rds"))%>%
   mutate(Characteristic = if_else(Characteristic=="", NA_character_, Characteristic))%>%
   fill(Characteristic, .direction = "down")%>%
   mutate(Industry= str_replace_all(Industry, " ", "&nbsp"))
+
 Shared_table <- SharedData$new(for_tables)
+
+industries <- unique(for_tables$parent)|>
+  unique()
 
 for_plots <- read_rds(here::here("temp","for_plots.rds"))%>%
   dplyr::rename(Characteristic=name)%>%
@@ -82,7 +76,7 @@ page_titles <- c(c("Title Page",#replace with your page titles
 
 ## Row {data-height="600"}
 
-```{r, out.width = "150%"}
+```{r, out.width = "100%"}
 knitr::include_graphics("psfs.png")#the cover image
 ```
 
@@ -114,10 +108,10 @@ knitr::include_graphics("psfs.png")#the cover image
 
 ```{r}
   filter_select(
-    id = "high",
+    id = "parent",
     label = "Choose an industry",
     sharedData = Shared_table,
-    group = ~`high`,
+    group = ~ `parent`,
     multiple = FALSE
   )
 
@@ -133,7 +127,7 @@ filter_select(
 
 ```{js, echo=FALSE}
 <!-- function filter_default(){ -->
-<!--   document.getElementById("high").getElementsByClassName("selectized")[0].selectize.setValue("Construction", false)  -->
+<!--   document.getElementById("parent").getElementsByClassName("selectized")[0].selectize.setValue("Construction", false)  -->
 <!--   document.getElementById("char").getElementsByClassName("selectized")[0].selectize.setValue("Employed", false) -->
 <!-- } -->
 <!-- $(document).ready(filter_default); -->
@@ -185,9 +179,9 @@ Shared_table %>%
 ```{r}
   filter_select(
     id = "high_plots",
-    label = "Choose an industry",
+    label = "Choose an aggregation level",
     sharedData = Shared_em,
-    group = ~`high`,
+    group = ~`agg_level`,
     multiple = FALSE
   )
 ```
@@ -236,7 +230,7 @@ level_change_plot(Shared_ur)
 
 ## Inputs {.sidebar}
 
--  Industry selection is on previous page (to ensure correspondence.)
+-  Aggregation level choice is on previous page (to ensure correspondence.)
 
 ### `r page_titles[4]`
 

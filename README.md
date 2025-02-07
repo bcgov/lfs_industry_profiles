@@ -9,17 +9,14 @@ lfs_industry_profiles
 * THIS PROJECT SHOULD LIVE ON YOUR HARD DRIVE, NOT THE LAN.
 
 * Get an RTRA account. (application form in directory `SAS`) 
-* upload the 2 .SAS files in directory `SAS` to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan).
+* upload the 4 .SAS files in directory `SAS` to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan).
 * grab a coffee...
-* download the 2 resulting csv files (From StatCan) and place in directory "data/current".
+* download the 4 resulting csv files (From StatCan) and place in directory "data/current".
 * Click the `Git` button and `pull` to make sure the script is the most recent version.
 * source file 00_source_me.R.
 
-Note that Jan 2026:
+Note that Jan 2026 need to create new scripts to download most recent data.
 
-1. The .csv files starting with `dont_delete` will need to be deleted.
-2. December's .csv files will need to be copied from old inputs to current inputs and prepended with `dont_delete`.
-3. the SAS files will need to be updated regarding the dates.
 
 #### Purpose
 
