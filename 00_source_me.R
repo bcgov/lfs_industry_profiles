@@ -34,9 +34,9 @@ if (!dir.exists("temp")) {dir.create("temp")}
 
 #are the required files where they are supposed to be?----------------
 assertthat::assert_that(length(list.files(here::here("data","current"), pattern="ftptemp"))==2,
-            msg="2 files with the pattern ftptemp4digNAICS must be in folder data/current")
+            msg="2 files with the pattern ftptemp must be in folder data/current")
 assertthat::assert_that(length(list.files(here::here("data","current"), pattern="lfsstat"))==2,
-            msg="2 files with the pattern lfsstat4digNAICS must be in folder data/current")
+            msg="2 files with the pattern lfsstat must be in folder data/current")
 assertthat::assert_that(length(list.files(here::here("data"), pattern="industry_mapping"))==1,
             msg="The file mapping.xlsx must be in folder data")
 assertthat::assert_that(length(list.files(here::here("data"), pattern="template"))==1,

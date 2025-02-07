@@ -68,10 +68,10 @@ parents <- bind_rows(high_parents, medium_parents, low_parents)|>
   distinct()
 
 # read in the data and join with mapping file to get aggregation info -------------------
-ftpt <- read_naics("ftptemp4digNAICS", ftpt)%>%
+ftpt <- read_naics("ftptemp", ftpt)%>%
   inner_join(mapping, by = "naics_5")
 
-status <- read_naics("lfsstat4digNAICS", lf_stat)%>%
+status <- read_naics("lfsstat", lf_stat)%>%
   inner_join(mapping, by = "naics_5")
 all_data <- bind_rows(ftpt, status)
 

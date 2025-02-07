@@ -417,8 +417,8 @@ make_patchwork <- function(page){
 }
 
 file.rename.wrapper <- function(wrong, correct){
-  wrong_path <- here("data","current", wrong)
-  correct_path <- here("data","current", correct)
+  wrong_path <- here::here("data","current", wrong)
+  correct_path <- here::here("data","current", correct)
   file.rename(wrong_path, correct_path)
 }
 
