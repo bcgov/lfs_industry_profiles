@@ -33,3 +33,18 @@
   text-align: center;
 }
 
+/* Style for the row with the background image */
+.background-banner {
+  background-image: url("psfs.png");  /* Make sure the image is in the same directory */
+  background-size: 100% auto;
+  background-position: top;
+  background-repeat: no-repeat;
+  color: black; /* Ensures text is visible */
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;  /* Full viewport height */
+  padding: 20px; /* Adds spacing inside */
+}

@@ -74,23 +74,9 @@ page_titles <- c(c("Title Page",#replace with your page titles
 
 # `r page_titles[1]` {data-navmenu="Table of Contents"}
 
-## Row {data-height="600"}
+## Row {.background-banner}
 
-```{r, out.width = "100%"}
-knitr::include_graphics("psfs.png")#the cover image
-```
-
-## Row {data-height="400"}
-
-### 
-
-<h1 class="center">
-
-`r params$doc_title`.
-
-</h1>
-
-<br><br>
+<br><br><br><br><br><br><br><br>
 
 <h3>Monthly Labour Force Survey, aggregated to 3 levels:</h3>
 
