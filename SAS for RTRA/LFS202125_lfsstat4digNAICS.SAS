@@ -26,7 +26,7 @@ run;
 
 %RTRAFreq(
      InputDataset=work.lfstats4digNAICS,
-     OutputName=lfsstat4digNAICS,
+     OutputName=lfsstat2125,
      ClassVarList= SYEAR SMTH lf_stat NAICS_5,
      UserWeight=FINALWT);
 run;

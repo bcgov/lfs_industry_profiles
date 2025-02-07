@@ -25,7 +25,7 @@ run;
 
 %RTRAFreq(
      InputDataset=work.ftptemp4digNAICS,
-     OutputName=ftptemp4digNAICS,
+     OutputName=ftptemp2125,
      ClassVarList= SYEAR SMTH ftpt NAICS_5,
      UserWeight=FINALWT);
 run;
