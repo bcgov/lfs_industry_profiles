@@ -13,16 +13,13 @@
 #' TO DO before sourcing this file:
 #'
 #' Get an RTRA account. (application form in directory `SAS`, send to Naomi)
-#' upload the 2 .SAS files in directory `SAS` to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan).
+#' upload the 4 .SAS files in directory `SAS` to https://www75.statcan.gc.ca/eft-tef/en/operations (To StatCan).
 #' grab a coffee...
-#' download the 2 resulting csv files (From StatCan) and place in directory "data/current".
+#' download the 4 resulting csv files (From StatCan) and place in directory "data/current".
 #' Click the Git button and pull to make sure the script is the most recent version.
 #' then source this file.
 
-#' Note that Jan 2026 the SAS files will need to be updated.
-#' 1. The .csv files starting with `dont_delete` will need to be deleted.
-#' 2. December's .csv files will need to be copied from old inputs to current inputs and prepended with `dont_delete`.
-#' 3. the SAS files will need to be updated regarding the dates.
+#' Note that Jan 2026 new sas files will be needed.
 
 #' Output found in directory out/current.
 
@@ -40,7 +37,7 @@ assertthat::assert_that(length(list.files(here::here("data","current"), pattern=
             msg="2 files with the pattern ftptemp4digNAICS must be in folder data/current")
 assertthat::assert_that(length(list.files(here::here("data","current"), pattern="lfsstat4digNAICS"))==2,
             msg="2 files with the pattern lfsstat4digNAICS must be in folder data/current")
-assertthat::assert_that(length(list.files(here::here("data"), pattern="mapping.xlsx"))==1,
+assertthat::assert_that(length(list.files(here::here("data"), pattern="industry_mapping"))==1,
             msg="The file mapping.xlsx must be in folder data")
 assertthat::assert_that(length(list.files(here::here("data"), pattern="template"))==1,
             msg="The file template.xlsx must be in folder data")
@@ -55,11 +52,17 @@ rmarkdown::render("02_dashboard.Rmd",
                   output_dir = here::here("out","current"))
 
 
-#archive input files--------
-# filesstrings::file.move(here::here("data","current", list.files(here::here("data", "current"), pattern = "RTRA")),
-#                         here::here("data", "old"), overwrite = TRUE)
-#
-#
+#replace random prefix on input files with today's date, then archive--------
+
+tibble(wrong_names=list.files(here::here("data", "current"), pattern = "RTRA"))|>
+  mutate(correct_names=sub("^[^_]+", today(), wrong_names))|>
+  mutate(correction=map2(wrong_names, correct_names, file.rename.wrapper))
+
+filesstrings::file.move(here::here("data",
+                                   "current",
+                                   list.files(here::here("data", "current"),
+                                              pattern = as.character(today()))),
+                        here::here("data", "old"), overwrite = TRUE)
 
 
 

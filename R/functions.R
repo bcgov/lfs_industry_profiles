@@ -10,30 +10,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 
-#' Pre-processing Naics e.g.  1111-1121, 1200, 1220-1300, replace - with : and then separate by comma, return tibble.
+# functions used in order of appearance
 
-fix_column_names <- function(tbbl){
-  colnames(tbbl) <- wrapR::make_title(colnames(tbbl))
-  return(tbbl)
+detach_package <- function(pkg){
+  detach(
+    paste0('package:', pkg),
+    character.only = T,
+    unload = T,
+    force = T
+  )
 }
-separate_naics <- function(my_string) {
-  vec <- my_string %>%
-    str_replace_all("-", ":") %>%
-    str_replace_all(" ", "") %>%
-    str_split(",") %>%
-    unlist()
-  tibble("naics" = vec)
+load_package <- function(pkg){
+  require(pkg, character.only = TRUE)
 }
-#' e.g. inputs 1111:1121 and 1200 return c(1111,1112,1113,....) and c(1200)
-fill_ranges <- function(rng) {
-  eval(parse(text = rng))
-}
-#' wrapper function for fill_ranges
-fill_wrapper <- function(tbbl) {
-  tbbl %>%
-    mutate(naics = map(naics, fill_ranges))
-}
-# function to read in the employment data by naics
 read_naics <- function(pttrn, var) {
   file_names <- list.files(here::here("data","current"), pattern = pttrn)
   vroom::vroom(here::here("data","current", file_names)) %>%
@@ -45,44 +34,18 @@ read_naics <- function(pttrn, var) {
     na.omit()%>%
     filter(naics_5 != "Unknown") %>%
     mutate(
-      naics= as.numeric(str_sub(naics_5, start=-4)),
       date = lubridate::ymd(paste(syear, smth, "01", sep = "/"))
     ) %>%
-     select(-syear, -smth, -naics_5)
+    select(-syear, -smth)
 }
-# aggregates data to level var for each name and date
 agg_level <- function(tbbl, var) {
   tbbl %>%
     group_by({{ var }}, name, date) %>%
     summarize(value = sum(value, na.rm=TRUE)) %>%
     group_by({{ var }}, .add = FALSE) %>%
     nest() %>%
-    rename(agg_level = {{ var }})
+    rename(industry = {{ var }})
 }
-# smooths data over previous months
-trail_ma <- function(tbbl, months) {
-  tbbl %>%
-    group_by(name) %>%
-    mutate(value = RcppRoll::roll_meanr(value, n = months)+1) #+1 to avoid infinite rates
-}
-# get the smoothed values for period max(date)-months
-get_smoothed <- function(tbbl, num_months) {
-  tbbl %>%
-    group_by(name) %>%
-    filter(near(date, max(date) - months(num_months), tol = 7)) %>%
-#    mutate(value=if_else(value<1500, NA_real_, value))%>% #suppress values
-    select(value)
-}
-# calculates the ytd average of the smoothed values
-ytd_ave <- function(tbbl, num_years) {
-  start <- floor_date(max(tbbl$date), unit = "year") - years(num_years)
-  end <- max(tbbl$date) - years(num_years)
-  tbbl %>%
-    group_by(name) %>%
-    filter(date >= start & date <= end) %>%
-    summarize(ytd_ave = mean(value))
-}
-# labour force and unemployment rates need to be calculated
 add_vars <- function(tbbl) {
   tbbl %>%
     pivot_wider(names_from = name, values_from = value) %>%
@@ -93,28 +56,54 @@ add_vars <- function(tbbl) {
     select(-Unknown)%>%
     pivot_longer(cols = -date, names_to = "name", values_to = "value")
 }
-# clears out constant values of var (for excel)
-unfill_var <- function(tbbl, var) {
-  tbbl %>%
-    mutate(characteristic = {{ var }} == dplyr::lag({{ var }}), .before = 1) %>%
-    mutate(characteristic = if_else(!is.na(characteristic) & characteristic, "", {{ var }})) %>%
-    select(-{{ var }})
+
+fix_column_names <- function(tbbl){
+  colnames(tbbl) <- make_title(colnames(tbbl))
+  return(tbbl)
 }
-# indicate hierarchy of industries by indentation
-indent_industry <- function(tbbl) {
-  tbbl %>%
-    mutate(
-      agg_level = if_else(characteristic == "", paste0("     ", agg_level), agg_level),
-      agg_level = if_else(is.na(low), agg_level, paste0("     ", agg_level))
-    )
+
+make_title <- function(strng){
+  strng <- str_to_title(str_replace_all(strng,"_"," "))
 }
-# puts columns in the correct order and gives them the correct names
+
+get_values <- function(tbbl, num_months) {
+  tbbl %>%
+    group_by(name) %>%
+    filter(near(date, max(date) - months(num_months), tol = 7)) %>%
+    #    mutate(value=if_else(value<1500, NA_real_, value))%>% #suppress values
+    select(value)
+}
+
+ytd_ave <- function(tbbl, num_years) {
+  start <- floor_date(max(tbbl$date), unit = "year") - years(num_years)
+  end <- max(tbbl$date) - years(num_years)
+  tbbl %>%
+    group_by(name) %>%
+    filter(date >= start & date <= end) %>%
+    summarize(ytd_ave = mean(value))
+}
+
+apply_formatting <- function(tbbl){
+  tbbl|>
+    rename(characteristic=name)|>
+    arrange(characteristic)|>
+    relocate(characteristic, .before = everything())|>
+    mutate(industry=as.character(industry),
+           industry=case_when(high=="high" ~ industry,
+                              medium=="medium" ~ paste0("    ", industry),
+                              low=="low" ~ paste0("        ", industry)
+           )
+    )|>
+    select(-high, -medium, -low)%>%
+    mutate(characteristic = ifelse(duplicated(characteristic), NA, characteristic))
+}
+
 clean_up <- function(tbbl) {
   tbbl %>%
     mutate(characteristic = str_to_title(str_replace_all(characteristic, "_", " "))) %>%
     select(
       Characteristic = characteristic,
-      Industry = agg_level,
+      Industry = industry,
       "{previous_year}" := previous_year,
       "{previous_month}" := previous_month,
       "{current}" := current,
@@ -128,7 +117,6 @@ clean_up <- function(tbbl) {
       `YTD/YTD%` = percent_change_ytd
     )
 }
-# clones the layout sheet of the template to new sheets with the industry names
 write_sheet <- function(tbbl, long_name) {
   sheet_name <- str_trunc(long_name, width = 31) # excel cant handle sheet names longer than this
   cloneSheet(wb, "layout", sheet_name)
@@ -169,39 +157,56 @@ write_sheet <- function(tbbl, long_name) {
     rownames = FALSE
   )
 }
-# stl_smooth <- function(tbbl){
-#   tbbl%>%
-#     mutate(date=yearmonth(date))%>%
-#     tsibble(key=name, index = date)%>%
-#     model(stl = STL(value~ trend(window = 5)+ season(window = "periodic"),
-#                     robust = TRUE))%>%
-#     components()%>%
-#     as_tsibble()%>%
-#     mutate(date=lubridate::ym(date))%>%
-#     select(name, date, smoothed=trend)%>%
-#     rename(value=smoothed)%>%
-#     as_tibble()
-# }
+#for dashboard---------------------
 
-rescale01 <- function(tbbl, var, ...) {
-  tbbl%>%
-    mutate(value= ({{  var  }} - min({{  var  }}, ...)) / (max({{  var  }}, ...) - min({{  var  }}, ...)))
+
+
+level_change_plot <- function(shared_df){
+  plot_ly(shared_df,
+          x =~ level_change_year,
+          y =~ level_change_month,
+          hoverinfo="text",
+          hovertext = ~industry,
+          type = "scatter",
+          mode = 'markers',
+          marker = list(size = ~ 2+20*(current-min(current, na.rm=TRUE))/
+                          (max(current, na.rm=TRUE)-min(current, na.rm=TRUE)), opacity = 0.5))%>%
+    layout(xaxis = list(title = "Level Change Year"),
+           yaxis = list(title = "Level Change Month")
+    )
 }
 
-# plot_forecasts <- function(historic, fcast, industry){
-#   fcast %>%
-#     filter(agg_level==industry) %>%
-#     autoplot(historic)+
-#     scale_y_continuous(trans="log", labels=scales::comma)+
-#     labs(x="",
-#          y="",
-#          title=paste("12 Month Exponential Smoothing Forecasts for",industry, "Industry"))+
-#     theme_minimal()+
-#     facet_wrap(~name, nrow=2, scales = "free_y")
-# }
-make_title <- function(strng){
-  strng <- str_to_title(str_replace_all(strng,"_"," "))
+
+percent_change_plot <- function(shared_df){
+  plot_ly(shared_df,
+          x =~ percent_change_year,
+          y =~ percent_change_month,
+          hoverinfo="text",
+          hovertext = ~industry,
+          type = "scatter",
+          mode = 'markers',
+          marker = list(size = ~ 2+20*(current-min(current, na.rm=TRUE))
+                        /(max(current, na.rm=TRUE)-min(current, na.rm=TRUE)), opacity = 0.5))%>%
+    layout(xaxis = list(title = "Percent Change Year", tickformat = '1%', range=c(-1,1)),
+           yaxis = list(title = "Percent Change Month", tickformat = '1%', range=c(-1,1))
+    )
 }
+
+my_heatmap <- function(var){
+  tbbl <- for_heatmaps%>%
+    filter(name==var)%>%
+    ungroup()|>
+    select(data)%>%
+    unnest(data)%>%
+    column_to_rownames(var="industry")
+  heatmaply(tbbl,
+            scale="row",
+            dendrogram = "row",
+            custom_hovertext = tbbl,
+            fontsize_col = 6,
+            column_text_angle = 90, main = var)
+}
+
 
 
 mybiplot <- function (pcobj, choices = 1:2, scale = 1, pc.biplot = TRUE,
@@ -354,45 +359,13 @@ get_biplot <- function(thing){
   plt[[1]]
 }
 
-
-
-
-level_change_plot <- function(shared_df){
-  plot_ly(shared_df,
-                 x =~ level_change_year,
-                 y =~ level_change_month,
-                 hoverinfo="text",
-                 hovertext = ~agg_level,
-                 type = "scatter",
-                 mode = 'markers',
-                 marker = list(size = ~ 2+20*(current-min(current, na.rm=TRUE))/
-                                 (max(current, na.rm=TRUE)-min(current, na.rm=TRUE)), opacity = 0.5))%>%
-    layout(xaxis = list(title = "Level Change Year"),
-           yaxis = list(title = "Level Change Month")
-    )
-}
-
-percent_change_plot <- function(shared_df){
-  plot_ly(shared_df,
-                 x =~ percent_change_year,
-                 y =~ percent_change_month,
-                 hoverinfo="text",
-                 hovertext = ~agg_level,
-                 type = "scatter",
-                 mode = 'markers',
-                 marker = list(size = ~ 2+20*(current-min(current, na.rm=TRUE))
-                               /(max(current, na.rm=TRUE)-min(current, na.rm=TRUE)), opacity = 0.5))%>%
-    layout(xaxis = list(title = "Percent Change Year", tickformat = '1%', range=c(-1,1)),
-           yaxis = list(title = "Percent Change Month", tickformat = '1%', range=c(-1,1))
-    )
-}
-
 my_heatmap <- function(var){
   tbbl <- for_heatmaps%>%
     filter(name==var)%>%
-    select(-name)%>%
+    ungroup()|>
+    select(-name, -agg_level)%>%
     unnest(data)%>%
-    column_to_rownames(var="agg_level")
+    column_to_rownames(var="industry")
   heatmaply(tbbl,
             scale="row",
             dendrogram = "row",
@@ -401,70 +374,52 @@ my_heatmap <- function(var){
             column_text_angle = 90, main = var)
 }
 
-area_plot <- function(thing, industry){
-  for_ts_plots%>%
+area_plot <- function(thing, ind){
+  for_ts_plots %>%
     filter(name==thing,
-           high==industry)%>%
-    mutate(high=str_replace_all(high, "Utilities","Utilities_high"))%>% #utilities has no sub-industries: prevents filtering out below.
-    filter(agg_level!=high)%>%
-    mutate(agg_level=word(agg_level, 1))%>%
-    ggplot(aes(date,value, fill=agg_level))+
+           parent==ind)%>%
+    filter(parent!=industry)%>%
+    ggplot(aes(date,value, fill=industry))+
     geom_area()+
     scale_y_continuous(labels=scales::comma)+
     theme_minimal()+
-    labs(x="",
-         y="",
+    labs(x=NULL,
+         y=NULL,
          title=thing,
          fill="")+
-    theme(legend.position="bottom")+
-    theme(text = element_text(size = 6))
+    theme(text = element_text(size = 6))+
+    theme(legend.text = element_text(size = 4))
 }
 
-line_plot <- function(thing, industry){
-  for_ts_plots%>%
-    mutate(high=str_replace_all(high, "Utilities","Utilities_high"))%>%#utilities has no sub-industries: prevents filtering out below.
-    filter(value < .5, #don't use unemployment rates greater than 50%
-           name==thing,
-           high==industry)%>%
-    mutate(high=str_replace_all(high, "Utilities","Utilities_high"))%>%#utilities has no sub-industries: prevents filtering out below.
-    filter(agg_level!=high)%>%
-    ggplot(aes(date,value, colour=agg_level))+
-    stat_smooth(alpha=.75, se=FALSE, lwd=.5, show.legend = FALSE)+
-    geom_jitter(size=.5, alpha=.1, show.legend = FALSE)+
-    scale_y_continuous(trans="log", labels= scales::percent_format(accuracy = 1), oob=squish)+
-    theme_minimal()+
-    labs(x="",
-         y="",
-         title=thing,
-         colour="")+
-    theme(text = element_text(size = 6))
+line_plot <- function(thing, ind){
+  for_ts_plots %>%
+    filter(name==thing,
+           industry==ind)|>
+    ggplot(aes(date, value))+
+    geom_line()+
+    scale_y_continuous(labels = scales::percent)+
+    labs(x=NULL,
+         y=NULL,
+         title=str_to_title(str_replace_all(thing, "_"," ")))+
+    theme_minimal()
 }
 
 make_patchwork <- function(page){
   employed <- area_plot("Employed", page)
   unemployed <- area_plot("Unemployed", page)
-  full_time <- area_plot("Full-Time", page)
-  part_time <- area_plot("Part-Time", page)
-#  labour_force <- area_plot("Labour Force", page)
-  unemployment_rate <- line_plot("Unemployment Rate", page)
+  full_time <- area_plot("Full-time", page)
+  part_time <- area_plot("Part-time", page)
+  unemployment_rate <- line_plot("unemployment_rate", page)
   combined <- ((employed+unemployed)/(full_time+part_time) | unemployment_rate) & theme(legend.position = "bottom")
   combined +
     plot_layout(guides = "collect")+
     plot_annotation(title = page, theme = theme(plot.title = element_text(size = 10)))
 }
 
-load_package <- function(pkg){
-      require(pkg, character.only = TRUE)
+file.rename.wrapper <- function(wrong, correct){
+  wrong_path <- here("data","current", wrong)
+  correct_path <- here("data","current", correct)
+  file.rename(wrong_path, correct_path)
 }
-detach_package <- function(pkg){
-  detach(
-    paste0('package:', pkg),
-    character.only = T,
-    unload = T,
-    force = T
-  )
-}
-
-
 
 
